@@ -140,8 +140,6 @@ func (p *thoughtspotProvider) Configure(ctx context.Context, req provider.Config
 		)
 	}
 
-
-
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -178,5 +176,6 @@ func (p *thoughtspotProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewMetadataResource,
 		resources.NewConnectionResource,
 		resources.NewRoleResource,
+		resources.NewTmlResource,
 	}
 }

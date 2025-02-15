@@ -7,6 +7,7 @@ import (
 	thoughtspot "github.com/daniepett/thoughtspot-sdk-go"
 	"github.com/daniepett/thoughtspot-sdk-go/models"
 	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -48,22 +49,24 @@ type ConnectionResourceModel struct {
 }
 
 type ConnectionSnowflakeModel struct {
-	AccountName       types.String `tfsdk:"account_name"`
-	User              types.String `tfsdk:"user"`
-	Password          types.String `tfsdk:"password"`
-	PrivateKey        types.String `tfsdk:"private_key"`
-	Role              types.String `tfsdk:"role"`
-	Warehouse         types.String `tfsdk:"warehouse"`
-	Database          types.String `tfsdk:"database"`
-	OauthClientId     types.String `tfsdk:"oauth_client_id"`
-	OauthClientSecret types.String `tfsdk:"oauth_client_secret"`
-	Scope             types.String `tfsdk:"scope"`
-	AuthUrl           types.String `tfsdk:"auth_url"`
-	AccessTokenUrl    types.String `tfsdk:"access_token_url"`
+	AuthenticationType types.String `tfsdk:"authentication_type"`
+	AccountName        types.String `tfsdk:"account_name"`
+	User               types.String `tfsdk:"user"`
+	Password           types.String `tfsdk:"password"`
+	PrivateKey         types.String `tfsdk:"private_key"`
+	Role               types.String `tfsdk:"role"`
+	Warehouse          types.String `tfsdk:"warehouse"`
+	Database           types.String `tfsdk:"database"`
+	OauthClientId      types.String `tfsdk:"oauth_client_id"`
+	OauthClientSecret  types.String `tfsdk:"oauth_client_secret"`
+	Scope              types.String `tfsdk:"scope"`
+	AuthUrl            types.String `tfsdk:"auth_url"`
+	AccessTokenUrl     types.String `tfsdk:"access_token_url"`
 }
 
 func (o ConnectionSnowflakeModel) attrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
+		"authentication_type": types.StringType,
 		"account_name":        types.StringType,
 		"user":                types.StringType,
 		"password":            types.StringType,
@@ -130,6 +133,18 @@ func (r *ConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest,
 					}...),
 				},
 				Attributes: map[string]schema.Attribute{
+					"authentication_type": schema.StringAttribute{
+						Required: true,
+						Validators: []validator.String{
+							stringvalidator.OneOf([]string{
+								"SERVICE_ACCOUNT",
+								"OAUTH",
+								"EXTOAUTH",
+								"KEY_PAIR",
+								"OAUTH_WITH_PKCE",
+								"EXTOAUTH_WITH_PKCE"}...),
+						},
+					},
 					"account_name": schema.StringAttribute{
 						Optional: true,
 					},
@@ -229,18 +244,22 @@ func (r *ConnectionResource) Create(ctx context.Context, req resource.CreateRequ
 		resp.Diagnostics.Append(diags...)
 
 		config = map[string]interface{}{
-			"accountName": cs.AccountName.ValueString(),
-			"user":        cs.User.ValueString(),
-			"password":    cs.Password.ValueString(),
+			"authenticationType": cs.AuthenticationType.ValueString(),
+			"accountName":        cs.AccountName.ValueString(),
+			// "password":           cs.Password.ValueString(),
 			// "privateKey":        cs.PrivateKey.ValueString(),
-			"role":              cs.Role.ValueString(),
-			"warehouse":         cs.Warehouse.ValueString(),
-			"database":          cs.Database.ValueString(),
-			"oauthClientId":     cs.OauthClientId.ValueString(),
-			"oauthClientSecret": cs.OauthClientSecret.ValueString(),
-			"scope":             cs.Scope.ValueString(),
-			"authUrl":           cs.AuthUrl.ValueString(),
-			"accessTokenUrl":    cs.AccessTokenUrl.ValueString(),
+			// "role":          cs.Role.ValueString(),
+			"warehouse":     cs.Warehouse.ValueString(),
+			"database":      cs.Database.ValueString(),
+			"client_id":     cs.OauthClientId.ValueString(),
+			"client_secret": cs.OauthClientSecret.ValueString(),
+			// "scope":             cs.Scope.ValueString(),
+			// "auth_url":           cs.AuthUrl.ValueString(),
+			// "accesstoken_url":    cs.AccessTokenUrl.ValueString(),
+		}
+
+		if !cs.User.IsNull() {
+			config["user"] = cs.User.ValueString()
 		}
 
 	}
@@ -350,18 +369,22 @@ func (r *ConnectionResource) Update(ctx context.Context, req resource.UpdateRequ
 		resp.Diagnostics.Append(diags...)
 
 		config = map[string]interface{}{
-			"accountName": cs.AccountName.ValueString(),
-			"user":        cs.User.ValueString(),
-			"password":    cs.Password.ValueString(),
+			"authenticationType": cs.AuthenticationType.ValueString(),
+			"accountName":        cs.AccountName.ValueString(),
+			"password":           cs.Password.ValueString(),
 			// "PrivateKey":        cs.PrivateKey.ValueString(),
-			"role":              cs.Role.ValueString(),
-			"warehouse":         cs.Warehouse.ValueString(),
-			"database":          cs.Database.ValueString(),
-			"oauthClientId":     cs.OauthClientId.ValueString(),
-			"oauthClientSecret": cs.OauthClientSecret.ValueString(),
-			"scope":             cs.Scope.ValueString(),
-			"authUrl":           cs.AuthUrl.ValueString(),
-			"accessTokenUrl":    cs.AccessTokenUrl.ValueString(),
+			"role":             cs.Role.ValueString(),
+			"warehouse":        cs.Warehouse.ValueString(),
+			"database":         cs.Database.ValueString(),
+			"client_id":        cs.OauthClientId.ValueString(),
+			"client_secret":    cs.OauthClientSecret.ValueString(),
+			"scope":            cs.Scope.ValueString(),
+			"auth_url":         cs.AuthUrl.ValueString(),
+			"access_token_url": cs.AccessTokenUrl.ValueString(),
+		}
+
+		if !cs.User.IsNull() {
+			config["user"] = cs.User.ValueString()
 		}
 
 	}

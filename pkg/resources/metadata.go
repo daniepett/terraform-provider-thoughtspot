@@ -106,9 +106,15 @@ func (r *MetadataResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 								Attributes: map[string]schema.Attribute{
 									"original": schema.StringAttribute{
 										Computed: true,
+										PlanModifiers: []planmodifier.String{
+											stringplanmodifier.UseStateForUnknown(),
+										},
 									},
 									"computed": schema.StringAttribute{
 										Computed: true,
+										PlanModifiers: []planmodifier.String{
+											stringplanmodifier.UseStateForUnknown(),
+										},
 									},
 								},
 							},
@@ -192,7 +198,6 @@ func exportTmlsMetadata(ctx context.Context, client *thoughtspot.Client, ids []s
 			guids = append(guids, guid)
 
 		}
-
 		lg, diag := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: MetadataGuidModel{}.attrTypes()}, guids)
 
 		diags.Append(diag...)
@@ -345,38 +350,57 @@ func (r *MetadataResource) Update(ctx context.Context, req resource.UpdateReques
 		ids = append(ids, r.Response.Header["id_guid"].(string))
 	}
 
-	var deletedIds []models.DeleteMetadataTypeInput
+	ex, diag := exportTmlsMetadata(ctx, r.client, ids, tmls)
 
-	for _, val1 := range originalIds {
-		found := false
+	resp.Diagnostics.Append(diag...)
+	// fmt.Print("This is the read", ex)
+	// Map response body to schema and populate Computed attribute values
+	var newMetadata []MetadataExportModel
+	diags = ex.ElementsAs(ctx, &newMetadata, false)
+	resp.Diagnostics.Append(diags...)
 
-		for _, val2 := range ids {
-			if val1 == val2 {
-				found = true
-				break
-			}
-		}
-		if !found {
-			deletedIds = append(deletedIds, models.DeleteMetadataTypeInput{
-				Identifier: val1,
-			})
-		}
+	for _, item := range newMetadata {
+		fmt.Print("This is the new tml", item.Tml)
 	}
 
-	if len(deletedIds) > 0 {
-		cr := models.DeleteMetadataRequest{
-			Metadata: deletedIds,
-		}
-		err := r.client.DeleteMetadata(cr)
+	plan.ID = types.StringValue(ids[0])
+	plan.Metadata = ex
 
-		if err != nil {
-			resp.Diagnostics.AddError(
-				"Error deleting Metadata",
-				"Could not Metadata, unexpected error: "+err.Error(),
-			)
-			return
-		}
-	}
+	// var deletedIds []models.DeleteMetadataTypeInput
+
+	// for _, val1 := range originalIds {
+	// 	found := false
+
+	// 	for _, val2 := range ids {
+	// 		if val1 == val2 {
+	// 			found = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if !found {
+	// 		fmt.Print("Not found", val1)
+	// 		deletedIds = append(deletedIds, models.DeleteMetadataTypeInput{
+	// 			Identifier: val1,
+	// 		})
+	// 	}
+	// }
+
+	// fmt.Print("these are deleted", deletedIds)
+
+	// if len(deletedIds) > 0 {
+	// 	cr := models.DeleteMetadataRequest{
+	// 		Metadata: deletedIds,
+	// 	}
+	// 	err := r.client.DeleteMetadata(cr)
+
+	// 	if err != nil {
+	// 		resp.Diagnostics.AddError(
+	// 			"Error deleting Metadata",
+	// 			"Could not Metadata, unexpected error: "+err.Error(),
+	// 		)
+	// 		return
+	// 	}
+	// }
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
