@@ -177,5 +177,6 @@ func (p *thoughtspotProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewConnectionResource,
 		resources.NewRoleResource,
 		resources.NewTmlResource,
+		resources.NewDbtConnectionResource,
 	}
 }

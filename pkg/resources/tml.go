@@ -120,7 +120,7 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	var diags diag.Diagnostics
 
 	cr := models.ExportMetadataTMLRequest{
-		Metadata: []models.ExportMetadataTypeInput{models.ExportMetadataTypeInput{
+		Metadata: []models.ExportMetadataTypeInput{{
 			Identifier: id,
 		}},
 		EdocFormat: "YAML",
