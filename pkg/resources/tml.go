@@ -303,7 +303,7 @@ func (r *TmlResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	}
 
 	cr := models.DeleteMetadataRequest{
-		Metadata: []models.DeleteMetadataTypeInput{models.DeleteMetadataTypeInput{Identifier: state.ID.ValueString()}},
+		Metadata: []models.DeleteMetadataTypeInput{{Identifier: state.ID.ValueString()}},
 	}
 
 	err := r.client.DeleteMetadata(cr)
