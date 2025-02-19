@@ -66,6 +66,10 @@ Optional:
 <a id="nestedblock--snowflake"></a>
 ### Nested Schema for `snowflake`
 
+Required:
+
+- `authentication_type` (String)
+
 Optional:
 
 - `access_token_url` (String)

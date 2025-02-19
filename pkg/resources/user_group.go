@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -87,6 +89,9 @@ func (r *UserGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					types.StringType,
 					[]attr.Value{},
 				)),
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"sub_groups": schema.ListAttribute{
 				ElementType: types.StringType,
@@ -125,6 +130,9 @@ func (r *UserGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 				Optional: true,
 				Computed: true,
 				Default:  booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -161,23 +169,28 @@ func (r *UserGroupResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	dli := make([]string, 0, len(plan.DefaultLiveboards.Elements()))
-	_ = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
+	diags = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
+	resp.Diagnostics.Append(diags...)
 
-	p := make([]string, 0, len(plan.Privileges.Elements()))
-	_ = plan.Privileges.ElementsAs(ctx, &p, false)
 
 	sgi := make([]string, 0, len(plan.SubGroups.Elements()))
-	_ = plan.SubGroups.ElementsAs(ctx, &sgi, false)
+	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
+	resp.Diagnostics.Append(diags...)
 
 	ui := make([]string, 0, len(plan.Users.Elements()))
-	_ = plan.Users.ElementsAs(ctx, &ui, false)
+	diags = plan.Users.ElementsAs(ctx, &ui, false)
+	resp.Diagnostics.Append(diags...)
 
 	var ri []string
-	if plan.RbacEnabled.ValueBool() {
+	var p []string
+	if plan.RbacEnabled.ValueBool() == true {
 		ri = make([]string, 0, len(plan.Roles.Elements()))
-		_ = plan.Roles.ElementsAs(ctx, &ri, false)
+		diags = plan.Roles.ElementsAs(ctx, &ri, false)
+		p = nil
 	} else {
-		ri = nil
+		p = make([]string, 0, len(plan.Privileges.Elements()))
+		diags = plan.Privileges.ElementsAs(ctx, &p, false)
+		
 	}
 
 	cr := models.CreateUserGroupRequest{
@@ -246,12 +259,10 @@ func (r *UserGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	m := c[0]
 
-	fmt.Print("This is the group", m)
 	state.Name = types.StringValue(m.Name)
 	state.DisplayName = types.StringValue(m.DisplayName)
 	state.DefaultLiveboards, _ = types.ListValueFrom(ctx, types.StringType, m.DefaultLiveboards)
 	state.Description = types.StringValue(m.Description)
-	state.Privileges, _ = types.ListValueFrom(ctx, types.StringType, m.Privileges)
 
 	state.SubGroups, _ = types.ListValueFrom(ctx, types.StringType, m.SubGroups)
 
@@ -265,13 +276,24 @@ func (r *UserGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.Users, _ = types.ListValueFrom(ctx, types.StringType, users)
 
 	state.Visibility = types.StringValue(m.Visibility)
-
-	state.Privileges, _ = types.ListValueFrom(ctx, types.StringType, m.Privileges)
-
-	fmt.Print("This is subgroups", m.SubGroups)
-	fmt.Print("This is roles", m.Roles)
-	if state.RbacEnabled.ValueBool() {
-		state.Roles, _ = types.ListValueFrom(ctx, types.StringType, m.Roles)
+	if state.RbacEnabled.ValueBool() == true {
+		roles := make([]string, len(m.Roles))
+		for i := range m.Roles {
+			roles[i] = m.Roles[i].Id
+		}	
+		state.Roles, diags = types.ListValueFrom(ctx, types.StringType, roles)
+		resp.Diagnostics.Append(diags...)
+		state.Privileges = types.ListValueMust(
+					types.StringType,
+					[]attr.Value{},
+				)
+	} else {
+		state.Roles = types.ListValueMust(
+					types.StringType,
+					[]attr.Value{},
+				)
+		state.Privileges, diags = types.ListValueFrom(ctx, types.StringType, m.Privileges)
+		resp.Diagnostics.Append(diags...)
 	}
 
 	// Set refreshed state
@@ -292,26 +314,28 @@ func (r *UserGroupResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	dli := make([]string, 0, len(plan.DefaultLiveboards.Elements()))
-	_ = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
-
-	p := make([]string, 0, len(plan.Privileges.Elements()))
-	_ = plan.Privileges.ElementsAs(ctx, &p, false)
+	diags = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
+	resp.Diagnostics.Append(diags...)
 
 	sgi := make([]string, 0, len(plan.SubGroups.Elements()))
-	_ = plan.SubGroups.ElementsAs(ctx, &sgi, false)
+	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
+	resp.Diagnostics.Append(diags...)
 
 	ui := make([]string, 0, len(plan.Users.Elements()))
-	_ = plan.Users.ElementsAs(ctx, &ui, false)
+	diags = plan.Users.ElementsAs(ctx, &ui, false)
+	resp.Diagnostics.Append(diags...)
 
 	var ri []string
-	if plan.RbacEnabled.ValueBool() {
+	var p []string
+	if plan.RbacEnabled.ValueBool() == true {
 		ri = make([]string, 0, len(plan.Roles.Elements()))
-		_ = plan.Roles.ElementsAs(ctx, &ri, false)
+		diags = plan.Roles.ElementsAs(ctx, &ri, false)
+		p = nil
 	} else {
+		p = make([]string, 0, len(plan.Privileges.Elements()))
+		diags = plan.Privileges.ElementsAs(ctx, &p, false)
 		ri = nil
 	}
-
-	fmt.Print("This is the roles in update", ri)
 
 	cr := models.UpdateUserGroupRequest{
 		Name:                        plan.Name.ValueString(),

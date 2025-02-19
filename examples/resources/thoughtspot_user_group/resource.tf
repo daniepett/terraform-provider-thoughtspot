@@ -5,4 +5,5 @@ resource "thoughtspot_user_group" "this" {
   visibility   = "SHARABLE"
   type         = "LOCAL_GROUP"
   privileges   = ["AUTHORING", "SHAREWITHALL"]
+  roles        = ["Role 1", "Role 2"]
 }

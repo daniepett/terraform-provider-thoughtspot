@@ -1,6 +1,5 @@
-resource "thoughtspot_metadata" "this" {
-  metadata {
-    tml = <<EOT
+resource "thoughtspot_tml" "this" {
+  tml = <<EOT
 guid: d084c256-e284-4fc4-b80c-111cb6064300
 liveboard:
   name: Sales Performance
@@ -42,5 +41,4 @@ liveboard:
       size: MEDIUM_SMALL
 
 EOT
-  }
 }
