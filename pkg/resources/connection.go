@@ -54,6 +54,7 @@ type ConnectionSnowflakeModel struct {
 	User               types.String `tfsdk:"user"`
 	Password           types.String `tfsdk:"password"`
 	PrivateKey         types.String `tfsdk:"private_key"`
+	Passphrase         types.String `tfsdk:"passphrase"`
 	Role               types.String `tfsdk:"role"`
 	Warehouse          types.String `tfsdk:"warehouse"`
 	Database           types.String `tfsdk:"database"`
@@ -71,6 +72,7 @@ func (o ConnectionSnowflakeModel) attrTypes() map[string]attr.Type {
 		"user":                types.StringType,
 		"password":            types.StringType,
 		"private_key":         types.StringType,
+		"passphrase":          types.StringType,
 		"role":                types.StringType,
 		"warehouse":           types.StringType,
 		"database":            types.StringType,
@@ -156,8 +158,14 @@ func (r *ConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest,
 						Sensitive: true,
 					},
 					"private_key": schema.StringAttribute{
-						Optional:  true,
-						Sensitive: true,
+						Optional:    true,
+						Sensitive:   true,
+						Description: "Private Key in PKCS8 Format",
+					},
+					"passphrase": schema.StringAttribute{
+						Optional:    true,
+						Sensitive:   true,
+						Description: "Passphrase for the Private Key",
 					},
 					"role": schema.StringAttribute{
 						Optional: true,
@@ -235,7 +243,7 @@ func (r *ConnectionResource) Create(ctx context.Context, req resource.CreateRequ
 
 	var dtype string
 	var config map[string]interface{}
-
+	var authType string
 	if !plan.Snowflake.IsNull() {
 		dtype = "SNOWFLAKE"
 		var cs ConnectionSnowflakeModel
@@ -244,22 +252,29 @@ func (r *ConnectionResource) Create(ctx context.Context, req resource.CreateRequ
 		resp.Diagnostics.Append(diags...)
 
 		config = map[string]interface{}{
-			"authenticationType": cs.AuthenticationType.ValueString(),
-			"accountName":        cs.AccountName.ValueString(),
+			"accountName": cs.AccountName.ValueString(),
 			// "password":           cs.Password.ValueString(),
-			// "privateKey":        cs.PrivateKey.ValueString(),
-			// "role":          cs.Role.ValueString(),
-			"warehouse":     cs.Warehouse.ValueString(),
-			"database":      cs.Database.ValueString(),
-			"client_id":     cs.OauthClientId.ValueString(),
-			"client_secret": cs.OauthClientSecret.ValueString(),
+			"role":      cs.Role.ValueString(),
+			"warehouse": cs.Warehouse.ValueString(),
+			"database":  cs.Database.ValueString(),
+			// "client_id":     cs.OauthClientId.ValueString(),
+			// "client_secret": cs.OauthClientSecret.ValueString(),
 			// "scope":             cs.Scope.ValueString(),
 			// "auth_url":           cs.AuthUrl.ValueString(),
 			// "accesstoken_url":    cs.AccessTokenUrl.ValueString(),
 		}
 
-		if !cs.User.IsNull() {
+		authType = cs.AuthenticationType.ValueString()
+
+		if authType == "KEY_PAIR" {
 			config["user"] = cs.User.ValueString()
+			config["private_key"] = cs.PrivateKey.ValueString()
+			config["passphrase"] = cs.Passphrase.ValueString()
+		}
+
+		if authType == "SERVICE_ACCOUNT" {
+			config["user"] = cs.User.ValueString()
+			config["password"] = cs.Password.ValueString()
 		}
 
 	}
@@ -278,8 +293,9 @@ func (r *ConnectionResource) Create(ctx context.Context, req resource.CreateRequ
 		Description:       plan.Description.ValueString(),
 		DataWarehouseType: dtype,
 		DataWarehouseConfig: map[string]interface{}{
-			"configuration":     config,
-			"externalDatabases": edl,
+			"authenticationType": authType,
+			"configuration":      config,
+			"externalDatabases":  edl,
 		},
 		Validate: plan.Validate.ValueBool(),
 	}
@@ -361,7 +377,7 @@ func (r *ConnectionResource) Update(ctx context.Context, req resource.UpdateRequ
 	}
 
 	var config map[string]interface{}
-
+	var authType string
 	if !plan.Snowflake.IsNull() {
 		var cs ConnectionSnowflakeModel
 
@@ -369,22 +385,29 @@ func (r *ConnectionResource) Update(ctx context.Context, req resource.UpdateRequ
 		resp.Diagnostics.Append(diags...)
 
 		config = map[string]interface{}{
-			"authenticationType": cs.AuthenticationType.ValueString(),
-			"accountName":        cs.AccountName.ValueString(),
-			"password":           cs.Password.ValueString(),
-			// "PrivateKey":        cs.PrivateKey.ValueString(),
-			"role":             cs.Role.ValueString(),
-			"warehouse":        cs.Warehouse.ValueString(),
-			"database":         cs.Database.ValueString(),
-			"client_id":        cs.OauthClientId.ValueString(),
-			"client_secret":    cs.OauthClientSecret.ValueString(),
-			"scope":            cs.Scope.ValueString(),
-			"auth_url":         cs.AuthUrl.ValueString(),
-			"access_token_url": cs.AccessTokenUrl.ValueString(),
+			"accountName": cs.AccountName.ValueString(),
+			// "password":           cs.Password.ValueString(),
+			"role":      cs.Role.ValueString(),
+			"warehouse": cs.Warehouse.ValueString(),
+			"database":  cs.Database.ValueString(),
+			// "client_id":     cs.OauthClientId.ValueString(),
+			// "client_secret": cs.OauthClientSecret.ValueString(),
+			// "scope":             cs.Scope.ValueString(),
+			// "auth_url":           cs.AuthUrl.ValueString(),
+			// "accesstoken_url":    cs.AccessTokenUrl.ValueString(),
 		}
 
-		if !cs.User.IsNull() {
+		authType = cs.AuthenticationType.ValueString()
+
+		if authType == "KEY_PAIR" {
 			config["user"] = cs.User.ValueString()
+			config["private_key"] = cs.PrivateKey.ValueString()
+			config["passphrase"] = cs.Passphrase.ValueString()
+		}
+
+		if authType == "SERVICE_USER" {
+			config["user"] = cs.User.ValueString()
+			config["password"] = cs.Password.ValueString()
 		}
 
 	}
