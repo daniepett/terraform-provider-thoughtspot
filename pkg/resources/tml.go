@@ -199,6 +199,14 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if len(c) == 0 {
 
 	}
+
+	if c[0].Response.Status.StatusCode == "ERROR" {
+		resp.Diagnostics.AddError(
+			"Error importing TML",
+			"Could not import tml , unexpected error: " + c[0].Response.Status.ErrorMessage,
+		)
+		return
+	}
 	id := c[0].Response.Header["id_guid"].(string)
 
 	ex, _ := exportTml(ctx, r.client, id, plan.Tml.ValueString())
