@@ -114,6 +114,9 @@ func (r *ConnectionResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			},
 			"data_warehouse_type": schema.StringAttribute{
 				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"external_databases": schema.ListNestedAttribute{
 				Optional: true,
