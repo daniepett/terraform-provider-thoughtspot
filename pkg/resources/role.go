@@ -3,6 +3,7 @@ package resources
 import (
 	"context"
 	"fmt"
+
 	// "slices"
 	thoughtspot "github.com/daniepett/thoughtspot-sdk-go"
 	"github.com/daniepett/thoughtspot-sdk-go/models"
@@ -11,10 +12,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -25,38 +26,38 @@ var (
 )
 
 var globalAllPrivileges = []string{"USERDATAUPLOADING",
-"DATADOWNLOADING",
-"DATAMANAGEMENT",
-"SHAREWITHALL",
-"JOBSCHEDULING",
-"A3ANALYSIS",
-"EXPERIMENTALFEATUREPRIVILEGE",
-"BYPASSRLS",
-"DISABLE_PINBOARD_CREATION",
-"DEVELOPER",
-"APPLICATION_ADMINISTRATION",
-"USER_ADMINISTRATION",
-"GROUP_ADMINISTRATION",
-"SYSTEM_INFO_ADMINISTRATION",
-"SYNCMANAGEMENT",
-"ORG_ADMINISTRATION",
-"ROLE_ADMINISTRATION",
-"AUTHENTICATION_ADMINISTRATION",
-"BILLING_INFO_ADMINISTRATION",
-"CONTROL_TRUSTED_AUTH",
-"TAGMANAGEMENT",
-"LIVEBOARD_VERIFIER",
-"CAN_MANAGE_CUSTOM_CALENDAR",
-"CAN_CREATE_OR_EDIT_CONNECTIONS",
-"CAN_MANAGE_WORKSHEET_VIEWS_TABLES",
-"CAN_MANAGE_VERSION_CONTROL",
-"THIRDPARTY_ANALYSIS",
-"CAN_CREATE_CATALOG",
-"ALLOW_NON_EMBED_FULL_APP_ACCESS",
-"CAN_ACCESS_ANALYST_STUDIO",
-"CAN_MANAGE_ANALYST_STUDIO",
-"PREVIEW_DOCUMENT_SEARCH",
-"CAN_SETUP_VERSION_CONTROL"}
+	"DATADOWNLOADING",
+	"DATAMANAGEMENT",
+	"SHAREWITHALL",
+	"JOBSCHEDULING",
+	"A3ANALYSIS",
+	"EXPERIMENTALFEATUREPRIVILEGE",
+	"BYPASSRLS",
+	"DISABLE_PINBOARD_CREATION",
+	"DEVELOPER",
+	"APPLICATION_ADMINISTRATION",
+	"USER_ADMINISTRATION",
+	"GROUP_ADMINISTRATION",
+	"SYSTEM_INFO_ADMINISTRATION",
+	"SYNCMANAGEMENT",
+	"ORG_ADMINISTRATION",
+	"ROLE_ADMINISTRATION",
+	"AUTHENTICATION_ADMINISTRATION",
+	"BILLING_INFO_ADMINISTRATION",
+	"CONTROL_TRUSTED_AUTH",
+	"TAGMANAGEMENT",
+	"LIVEBOARD_VERIFIER",
+	"CAN_MANAGE_CUSTOM_CALENDAR",
+	"CAN_CREATE_OR_EDIT_CONNECTIONS",
+	"CAN_MANAGE_WORKSHEET_VIEWS_TABLES",
+	"CAN_MANAGE_VERSION_CONTROL",
+	"THIRDPARTY_ANALYSIS",
+	"CAN_CREATE_CATALOG",
+	"ALLOW_NON_EMBED_FULL_APP_ACCESS",
+	"CAN_ACCESS_ANALYST_STUDIO",
+	"CAN_MANAGE_ANALYST_STUDIO",
+	"PREVIEW_DOCUMENT_SEARCH",
+	"CAN_SETUP_VERSION_CONTROL"}
 
 // NewOrderResource is a helper function to simplify the provider implementation.
 func NewRoleResource() resource.Resource {
@@ -97,7 +98,7 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"description": schema.StringAttribute{
 				Optional: true,
 				Computed: true,
-				Default: stringdefault.StaticString(""),
+				Default:  stringdefault.StaticString(""),
 			},
 			"privileges": schema.ListAttribute{
 				ElementType: types.StringType,
