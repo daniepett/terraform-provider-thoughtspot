@@ -33,13 +33,13 @@ type ShareMetadataResource struct {
 }
 
 type ShareMetadataResourceModel struct {
-	ID                  types.String `tfsdk:"id"`
-	MetadataType        types.String `tfsdk:"metadata_type"`
-	MetadataIdentifiers types.List   `tfsdk:"metadata_identifiers"`
-	PrincipalType       types.String `tfsdk:"principal_type"`
-	PrincipalIdentifier types.String `tfsdk:"principal_identifier"`
-	ShareMode           types.String `tfsdk:"share_mode"`
-	Discoverable        types.Bool   `tfsdk:"discoverable"`
+	ID                   types.String `tfsdk:"id"`
+	MetadataType         types.String `tfsdk:"metadata_type"`
+	MetadataIdentifiers  types.List   `tfsdk:"metadata_identifiers"`
+	PrincipalType        types.String `tfsdk:"principal_type"`
+	PrincipalIdentifiers types.List   `tfsdk:"principal_identifiers"`
+	ShareMode            types.String `tfsdk:"share_mode"`
+	Discoverable         types.Bool   `tfsdk:"discoverable"`
 }
 
 // ShareMetadata returns the resource type name.
@@ -92,11 +92,11 @@ func (r *ShareMetadataResource) Schema(_ context.Context, _ resource.SchemaReque
 						"USER_GROUP"}...),
 				},
 			},
-			"principal_identifier": schema.StringAttribute{
+			"principal_identifiers": schema.ListAttribute{
 				Required:    true,
 				Description: "Unique ID or name of the principal object such as a user or group.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
 				},
 			},
 			"share_mode": schema.StringAttribute{
@@ -153,17 +153,27 @@ func (r *ShareMetadataResource) Create(ctx context.Context, req resource.CreateR
 	diags = plan.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
 	resp.Diagnostics.Append(diags...)
 
-	cr := models.ShareMetadataRequest{
-		MetadataType:        plan.MetadataType.ValueString(),
-		MetadataIdentifiers: mi,
-		Permissions: []models.SharePermissionsInput{models.SharePermissionsInput{
+	ui := make([]string, 0, len(plan.PrincipalIdentifiers.Elements()))
+	diags = plan.PrincipalIdentifiers.ElementsAs(ctx, &ui, false)
+	resp.Diagnostics.Append(diags...)
+
+	var u []models.SharePermissionsInput
+
+	for _, id := range ui {
+		p := models.SharePermissionsInput{
 			Principal: models.PrincipalsInput{
-				Identifier: plan.PrincipalIdentifier.ValueString(),
+				Identifier: id,
 				Type:       plan.PrincipalType.ValueString(),
 			},
 			ShareMode: plan.ShareMode.ValueString(),
-		},
-		},
+		}
+		u = append(u, p)
+	}
+
+	cr := models.ShareMetadataRequest{
+		MetadataType:              plan.MetadataType.ValueString(),
+		MetadataIdentifiers:       mi,
+		Permissions:               u,
 		HasLenientDiscoverability: plan.Discoverable.ValueBool(),
 	}
 
@@ -197,7 +207,8 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	mi := make([]string, 0, len(state.MetadataIdentifiers.Elements()))
-	_ = state.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
+	diags = state.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
+	resp.Diagnostics.Append(diags...)
 
 	var m []models.PermissionsMetadataTypeInput
 
@@ -205,9 +216,19 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 		m = append(m, models.PermissionsMetadataTypeInput{Identifier: id, Type: state.MetadataType.ValueString()})
 	}
 
+	ui := make([]string, 0, len(state.PrincipalIdentifiers.Elements()))
+	diags = state.PrincipalIdentifiers.ElementsAs(ctx, &ui, false)
+	resp.Diagnostics.Append(diags...)
+
+	var u []models.PrincipalsInput
+
+	for _, id := range mi {
+		u = append(u, models.PrincipalsInput{Identifier: id, Type: state.PrincipalType.ValueString()})
+	}
+
 	cr := models.FetchPermissionsOnMetadataRequest{
 		Metadata:   m,
-		Principals: []models.PrincipalsInput{models.PrincipalsInput{Identifier: state.PrincipalIdentifier.ValueString(), Type: state.PrincipalType.ValueString()}},
+		Principals: u,
 	}
 
 	c, err := r.client.FetchPermissionsOnMetadata(cr)
@@ -258,20 +279,29 @@ func (r *ShareMetadataResource) Update(ctx context.Context, req resource.UpdateR
 	diags = plan.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
 	resp.Diagnostics.Append(diags...)
 
-	cr := models.ShareMetadataRequest{
-		MetadataType:        plan.MetadataType.ValueString(),
-		MetadataIdentifiers: mi,
-		Permissions: []models.SharePermissionsInput{models.SharePermissionsInput{
+	ui := make([]string, 0, len(plan.PrincipalIdentifiers.Elements()))
+	diags = plan.PrincipalIdentifiers.ElementsAs(ctx, &ui, false)
+	resp.Diagnostics.Append(diags...)
+
+	var u []models.SharePermissionsInput
+
+	for _, id := range ui {
+		p := models.SharePermissionsInput{
 			Principal: models.PrincipalsInput{
-				Identifier: plan.PrincipalIdentifier.ValueString(),
+				Identifier: id,
 				Type:       plan.PrincipalType.ValueString(),
 			},
 			ShareMode: plan.ShareMode.ValueString(),
-		},
-		},
-		HasLenientDiscoverability: plan.Discoverable.ValueBool(),
+		}
+		u = append(u, p)
 	}
 
+	cr := models.ShareMetadataRequest{
+		MetadataType:              plan.MetadataType.ValueString(),
+		MetadataIdentifiers:       mi,
+		Permissions:               u,
+		HasLenientDiscoverability: plan.Discoverable.ValueBool(),
+	}
 	err := r.client.ShareMetadata(cr)
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -301,17 +331,27 @@ func (r *ShareMetadataResource) Delete(ctx context.Context, req resource.DeleteR
 	diags = state.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
 	resp.Diagnostics.Append(diags...)
 
-	cr := models.ShareMetadataRequest{
-		MetadataType:        state.MetadataType.ValueString(),
-		MetadataIdentifiers: mi,
-		Permissions: []models.SharePermissionsInput{models.SharePermissionsInput{
+	ui := make([]string, 0, len(state.PrincipalIdentifiers.Elements()))
+	diags = state.PrincipalIdentifiers.ElementsAs(ctx, &ui, false)
+	resp.Diagnostics.Append(diags...)
+
+	var u []models.SharePermissionsInput
+
+	for _, id := range ui {
+		p := models.SharePermissionsInput{
 			Principal: models.PrincipalsInput{
-				Identifier: state.PrincipalIdentifier.ValueString(),
+				Identifier: id,
 				Type:       state.PrincipalType.ValueString(),
 			},
 			ShareMode: "NO_ACCESS",
-		},
-		},
+		}
+		u = append(u, p)
+	}
+
+	cr := models.ShareMetadataRequest{
+		MetadataType:              state.MetadataType.ValueString(),
+		MetadataIdentifiers:       mi,
+		Permissions:               u,
 		HasLenientDiscoverability: state.Discoverable.ValueBool(),
 	}
 
