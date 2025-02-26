@@ -187,7 +187,7 @@ func (r *ShareMetadataResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	plan.ID = types.StringValue(mi[0] + "|" + plan.PrincipalType.ValueString())
+	plan.ID = types.StringValue(mi[0] + "|" + ui[0])
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
