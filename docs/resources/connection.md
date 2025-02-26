@@ -78,8 +78,9 @@ Optional:
 - `database` (String)
 - `oauth_client_id` (String)
 - `oauth_client_secret` (String, Sensitive)
+- `passphrase` (String, Sensitive) Passphrase for the Private Key
 - `password` (String, Sensitive)
-- `private_key` (String, Sensitive)
+- `private_key` (String, Sensitive) Private Key in PKCS8 Format
 - `role` (String)
 - `scope` (String)
 - `user` (String)
