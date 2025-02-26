@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -34,7 +35,7 @@ type ShareMetadataResource struct {
 type ShareMetadataResourceModel struct {
 	ID                  types.String `tfsdk:"id"`
 	MetadataType        types.String `tfsdk:"metadata_type"`
-	MetadataIdentifier  types.String `tfsdk:"metadata_identifier"`
+	MetadataIdentifiers types.List   `tfsdk:"metadata_identifiers"`
 	PrincipalType       types.String `tfsdk:"principal_type"`
 	PrincipalIdentifier types.String `tfsdk:"principal_identifier"`
 	ShareMode           types.String `tfsdk:"share_mode"`
@@ -71,11 +72,12 @@ func (r *ShareMetadataResource) Schema(_ context.Context, _ resource.SchemaReque
 						"CONNECTION"}...),
 				},
 			},
-			"metadata_identifier": schema.StringAttribute{
+			"metadata_identifiers": schema.ListAttribute{
 				Required:    true,
-				Description: "Unique ID or name of metadata object.",
-				PlanModifiers: []planmodifier.String{
-					stringplanmodifier.RequiresReplace(),
+				ElementType: types.StringType,
+				Description: "Unique ID or name of metadata object. Note: All the names should belong to same metadata_type",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.RequiresReplace(),
 				},
 			},
 			"principal_type": schema.StringAttribute{
@@ -147,9 +149,13 @@ func (r *ShareMetadataResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
+	mi := make([]string, 0, len(plan.MetadataIdentifiers.Elements()))
+	diags = plan.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
+	resp.Diagnostics.Append(diags...)
+
 	cr := models.ShareMetadataRequest{
 		MetadataType:        plan.MetadataType.ValueString(),
-		MetadataIdentifiers: []string{plan.MetadataIdentifier.ValueString()},
+		MetadataIdentifiers: mi,
 		Permissions: []models.SharePermissionsInput{models.SharePermissionsInput{
 			Principal: models.PrincipalsInput{
 				Identifier: plan.PrincipalIdentifier.ValueString(),
@@ -170,7 +176,7 @@ func (r *ShareMetadataResource) Create(ctx context.Context, req resource.CreateR
 		return
 	}
 
-	plan.ID = types.StringValue(plan.MetadataIdentifier.ValueString() + "|" + plan.PrincipalType.ValueString())
+	plan.ID = types.StringValue(mi[0] + "|" + plan.PrincipalType.ValueString())
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
@@ -190,8 +196,17 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
+	mi := make([]string, 0, len(state.MetadataIdentifiers.Elements()))
+	_ = state.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
+
+	var m []models.PermissionsMetadataTypeInput
+
+	for _, id := range mi {
+		m = append(m, models.PermissionsMetadataTypeInput{Identifier: id, Type: state.MetadataType.ValueString()})
+	}
+
 	cr := models.FetchPermissionsOnMetadataRequest{
-		Metadata:   []models.PermissionsMetadataTypeInput{models.PermissionsMetadataTypeInput{Identifier: state.MetadataIdentifier.ValueString()}},
+		Metadata:   m,
 		Principals: []models.PrincipalsInput{models.PrincipalsInput{Identifier: state.PrincipalIdentifier.ValueString(), Type: state.PrincipalType.ValueString()}},
 	}
 
@@ -210,9 +225,17 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 		return
 	}
 
+	var ids []string
+
+	for _, metadata := range c.MetadataPermissionDetails {
+		ids = append(ids, metadata.MetadataId)
+	}
 	p := c.MetadataPermissionDetails[0].PrincipalPermissionInfo[0].PrincipalPermissions[0].Permission
 
 	state.ShareMode = types.StringValue(p)
+
+	state.MetadataIdentifiers, diags = types.ListValueFrom(ctx, types.StringType, ids)
+	resp.Diagnostics.Append(diags...)
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -231,9 +254,13 @@ func (r *ShareMetadataResource) Update(ctx context.Context, req resource.UpdateR
 		return
 	}
 
+	mi := make([]string, 0, len(plan.MetadataIdentifiers.Elements()))
+	diags = plan.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
+	resp.Diagnostics.Append(diags...)
+
 	cr := models.ShareMetadataRequest{
 		MetadataType:        plan.MetadataType.ValueString(),
-		MetadataIdentifiers: []string{plan.MetadataIdentifier.ValueString()},
+		MetadataIdentifiers: mi,
 		Permissions: []models.SharePermissionsInput{models.SharePermissionsInput{
 			Principal: models.PrincipalsInput{
 				Identifier: plan.PrincipalIdentifier.ValueString(),
@@ -270,9 +297,13 @@ func (r *ShareMetadataResource) Delete(ctx context.Context, req resource.DeleteR
 		return
 	}
 
+	mi := make([]string, 0, len(state.MetadataIdentifiers.Elements()))
+	diags = state.MetadataIdentifiers.ElementsAs(ctx, &mi, false)
+	resp.Diagnostics.Append(diags...)
+
 	cr := models.ShareMetadataRequest{
 		MetadataType:        state.MetadataType.ValueString(),
-		MetadataIdentifiers: []string{state.MetadataIdentifier.ValueString()},
+		MetadataIdentifiers: mi,
 		Permissions: []models.SharePermissionsInput{models.SharePermissionsInput{
 			Principal: models.PrincipalsInput{
 				Identifier: state.PrincipalIdentifier.ValueString(),
