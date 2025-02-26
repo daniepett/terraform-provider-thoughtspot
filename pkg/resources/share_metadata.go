@@ -94,7 +94,8 @@ func (r *ShareMetadataResource) Schema(_ context.Context, _ resource.SchemaReque
 			},
 			"principal_identifiers": schema.ListAttribute{
 				Required:    true,
-				Description: "Unique ID or name of the principal object such as a user or group.",
+				ElementType: types.StringType,
+				Description: "Unique IDs or names of the principal object such as a user or group.",
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.RequiresReplace(),
 				},
@@ -222,7 +223,7 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 
 	var u []models.PrincipalsInput
 
-	for _, id := range mi {
+	for _, id := range ui {
 		u = append(u, models.PrincipalsInput{Identifier: id, Type: state.PrincipalType.ValueString()})
 	}
 
