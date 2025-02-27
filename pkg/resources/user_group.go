@@ -10,11 +10,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -101,6 +101,9 @@ func (r *UserGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 					types.StringType,
 					[]attr.Value{},
 				)),
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"type": schema.StringAttribute{
 				Optional: true,
@@ -172,7 +175,6 @@ func (r *UserGroupResource) Create(ctx context.Context, req resource.CreateReque
 	diags = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
 	resp.Diagnostics.Append(diags...)
 
-
 	sgi := make([]string, 0, len(plan.SubGroups.Elements()))
 	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
 	resp.Diagnostics.Append(diags...)
@@ -190,7 +192,7 @@ func (r *UserGroupResource) Create(ctx context.Context, req resource.CreateReque
 	} else {
 		p = make([]string, 0, len(plan.Privileges.Elements()))
 		diags = plan.Privileges.ElementsAs(ctx, &p, false)
-		
+
 	}
 
 	cr := models.CreateUserGroupRequest{
@@ -259,42 +261,51 @@ func (r *UserGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 
 	m := c[0]
 
-	state.Name = types.StringValue(m.Name)
-	state.DisplayName = types.StringValue(m.DisplayName)
-	state.DefaultLiveboards, _ = types.ListValueFrom(ctx, types.StringType, m.DefaultLiveboards)
-	state.Description = types.StringValue(m.Description)
-
-	state.SubGroups, _ = types.ListValueFrom(ctx, types.StringType, m.SubGroups)
-
-	state.Type = types.StringValue(m.Type)
-
 	users := make([]string, len(m.Users))
 	for i := range m.Users {
 		users[i] = m.Users[i].Name
 	}
 
-	state.Users, _ = types.ListValueFrom(ctx, types.StringType, users)
+	sg := make([]string, len(m.SubGroups))
+	for i := range m.SubGroups {
+		sg[i] = m.SubGroups[i].Name
+	}
 
+	dl := make([]string, len(m.DefaultLiveboards))
+	for i := range m.DefaultLiveboards {
+		dl[i] = m.DefaultLiveboards[i].Id
+	}
+
+	state.Name = types.StringValue(m.Name)
+	state.DisplayName = types.StringValue(m.DisplayName)
+	state.Description = types.StringValue(m.Description)
+	state.Type = types.StringValue(m.Type)
+	state.Users, _ = types.ListValueFrom(ctx, types.StringType, users)
+	state.SubGroups, _ = types.ListValueFrom(ctx, types.StringType, sg)
+	state.DefaultLiveboards, _ = types.ListValueFrom(ctx, types.StringType, dl)
 	state.Visibility = types.StringValue(m.Visibility)
+
 	if state.RbacEnabled.ValueBool() == true {
 		roles := make([]string, len(m.Roles))
 		for i := range m.Roles {
 			roles[i] = m.Roles[i].Id
-		}	
+		}
 		state.Roles, diags = types.ListValueFrom(ctx, types.StringType, roles)
 		resp.Diagnostics.Append(diags...)
 		state.Privileges = types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)
+			types.StringType,
+			[]attr.Value{},
+		)
 	} else {
 		state.Roles = types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)
+			types.StringType,
+			[]attr.Value{},
+		)
 		state.Privileges, diags = types.ListValueFrom(ctx, types.StringType, m.Privileges)
 		resp.Diagnostics.Append(diags...)
 	}
+
+	fmt.Print("This is state", state)
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
