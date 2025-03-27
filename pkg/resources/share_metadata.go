@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
@@ -40,6 +42,7 @@ type ShareMetadataResourceModel struct {
 	PrincipalIdentifiers types.List   `tfsdk:"principal_identifiers"`
 	ShareMode            types.String `tfsdk:"share_mode"`
 	Discoverable         types.Bool   `tfsdk:"discoverable"`
+	NotifyOnShare        types.Bool   `tfsdk:"notify_on_share"`
 }
 
 // ShareMetadata returns the resource type name.
@@ -112,6 +115,15 @@ func (r *ShareMetadataResource) Schema(_ context.Context, _ resource.SchemaReque
 						"NO_ACCESS"}...),
 				},
 			},
+			"notify_on_share": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Flag to notify user when any object is shared.",
+				Default:     booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"discoverable": schema.BoolAttribute{
 				Required:    true,
 				Description: "Flag to make the object discoverable.",
@@ -176,6 +188,7 @@ func (r *ShareMetadataResource) Create(ctx context.Context, req resource.CreateR
 		MetadataIdentifiers:       mi,
 		Permissions:               u,
 		HasLenientDiscoverability: plan.Discoverable.ValueBool(),
+		NotifyOnShare:             plan.NotifyOnShare.ValueBool(),
 	}
 
 	err := r.client.ShareMetadata(cr)
@@ -302,6 +315,7 @@ func (r *ShareMetadataResource) Update(ctx context.Context, req resource.UpdateR
 		MetadataIdentifiers:       mi,
 		Permissions:               u,
 		HasLenientDiscoverability: plan.Discoverable.ValueBool(),
+		NotifyOnShare:             plan.NotifyOnShare.ValueBool(),
 	}
 	err := r.client.ShareMetadata(cr)
 	if err != nil {
@@ -354,6 +368,7 @@ func (r *ShareMetadataResource) Delete(ctx context.Context, req resource.DeleteR
 		MetadataIdentifiers:       mi,
 		Permissions:               u,
 		HasLenientDiscoverability: state.Discoverable.ValueBool(),
+		NotifyOnShare:             state.NotifyOnShare.ValueBool(),
 	}
 
 	err := r.client.ShareMetadata(cr)
