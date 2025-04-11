@@ -251,7 +251,6 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	state.Guids = ex.Guids
 	state.Tml = ex.Tml
 
 	// Set refreshed state
@@ -296,7 +295,7 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	}
 
-	ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), tml, nil)
+	ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), plan.Tml.ValueString(), nil)
 	resp.Diagnostics.Append(diag...)
 
 	plan.Tml = ex.Tml
