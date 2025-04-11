@@ -148,7 +148,7 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
 	ogids := re.FindAllStringSubmatch(tml, -1)
 	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
-	if existingGuids != nil && (len(ogids) != len(cgids)) {
+	if existingGuids != nil && len(ogids) != len(cgids) {
 		guids = existingGuids
 	} else {
 		for j := range ogids {
@@ -164,7 +164,7 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	tmlExport := metadata.Edoc
 
 	for _, guid := range guids {
-		tmlExport = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
+		tmlExport = strings.Replace(tml, guid.Computed.ValueString(), guid.Original.ValueString(), 1)
 	}
 
 	lg, diag := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: MetadataGuidModel{}.attrTypes()}, guids)
@@ -243,6 +243,11 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	var guids []MetadataGuidModel
 	diags = state.Guids.ElementsAs(ctx, &guids, false)
 	resp.Diagnostics.Append(diags...)
+
+	// Ensure guids is not nil
+	if guids == nil {
+		guids = []MetadataGuidModel{}
+	}
 	ex, _ := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString(), guids)
 
 	if ex == nil {
