@@ -145,13 +145,12 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	metadata := c[0]
 
 	var guids []MetadataGuidModel
-
-	if existingGuids != nil {
+	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
+	ogids := re.FindAllStringSubmatch(tml, -1)
+	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
+	if existingGuids != nil && (len(ogids) != len(cgids)) {
 		guids = existingGuids
 	} else {
-		re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
-		ogids := re.FindAllStringSubmatch(tml, -1)
-		cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
 		for j := range ogids {
 			guid := MetadataGuidModel{
 				Original: types.StringValue(ogids[j][1]),
@@ -252,6 +251,7 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	state.Tml = ex.Tml
+	state.Guids = ex.Guids
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -295,11 +295,11 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	}
 
-	ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), plan.Tml.ValueString(), nil)
-	resp.Diagnostics.Append(diag...)
+	// ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), plan.Tml.ValueString(), nil)
+	// resp.Diagnostics.Append(diag...)
 
-	plan.Tml = ex.Tml
-	plan.Guids = ex.Guids
+	// plan.Tml = ex.Tml
+	// plan.Guids = ex.Guids
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
