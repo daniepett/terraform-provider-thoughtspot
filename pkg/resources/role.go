@@ -57,7 +57,8 @@ var globalAllPrivileges = []string{"USERDATAUPLOADING",
 	"CAN_ACCESS_ANALYST_STUDIO",
 	"CAN_MANAGE_ANALYST_STUDIO",
 	"PREVIEW_DOCUMENT_SEARCH",
-	"CAN_SETUP_VERSION_CONTROL"}
+	"CAN_SETUP_VERSION_CONTROL",
+	"PREVIEW_THOUGHTSPOT_SAGE"}
 
 // NewOrderResource is a helper function to simplify the provider implementation.
 func NewRoleResource() resource.Resource {
