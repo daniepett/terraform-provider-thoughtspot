@@ -110,12 +110,8 @@ func (r *UserGroupResource) Schema(_ context.Context, _ resource.SchemaRequest, 
 			},
 			"users": schema.ListAttribute{
 				ElementType: types.StringType,
+				Description: "List of user names to add to the user group, if not defined Terraform will not manage user assignment to the group",
 				Optional:    true,
-				Computed:    true,
-				Default: listdefault.StaticValue(types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)),
 			},
 			"visibility": schema.StringAttribute{
 				Optional: true,
@@ -179,19 +175,26 @@ func (r *UserGroupResource) Create(ctx context.Context, req resource.CreateReque
 	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
 	resp.Diagnostics.Append(diags...)
 
-	ui := make([]string, 0, len(plan.Users.Elements()))
-	diags = plan.Users.ElementsAs(ctx, &ui, false)
-	resp.Diagnostics.Append(diags...)
+	var ui []string
+	if !plan.Users.IsNull() {
+		ui = make([]string, 0, len(plan.Users.Elements()))
+		diags = plan.Users.ElementsAs(ctx, &ui, false)
+		resp.Diagnostics.Append(diags...)
+	} else {
+		ui = nil
+	}
 
 	var ri []string
 	var p []string
-	if plan.RbacEnabled.ValueBool() == true {
+	if plan.RbacEnabled.ValueBool() {
 		ri = make([]string, 0, len(plan.Roles.Elements()))
 		diags = plan.Roles.ElementsAs(ctx, &ri, false)
+		resp.Diagnostics.Append(diags...)
 		p = nil
 	} else {
 		p = make([]string, 0, len(plan.Privileges.Elements()))
 		diags = plan.Privileges.ElementsAs(ctx, &p, false)
+		resp.Diagnostics.Append(diags...)
 
 	}
 
@@ -262,8 +265,12 @@ func (r *UserGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 	m := c[0]
 
 	users := make([]string, len(m.Users))
-	for i := range m.Users {
-		users[i] = m.Users[i].Name
+	if !state.Users.IsNull() {
+		for i := range m.Users {
+			users[i] = m.Users[i].Name
+		}
+	} else {
+		users = nil
 	}
 
 	sg := make([]string, len(m.SubGroups))
@@ -285,7 +292,7 @@ func (r *UserGroupResource) Read(ctx context.Context, req resource.ReadRequest, 
 	state.DefaultLiveboards, _ = types.ListValueFrom(ctx, types.StringType, dl)
 	state.Visibility = types.StringValue(m.Visibility)
 
-	if state.RbacEnabled.ValueBool() == true {
+	if state.RbacEnabled.ValueBool() {
 		roles := make([]string, len(m.Roles))
 		for i := range m.Roles {
 			roles[i] = m.Roles[i].Id
@@ -332,19 +339,26 @@ func (r *UserGroupResource) Update(ctx context.Context, req resource.UpdateReque
 	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
 	resp.Diagnostics.Append(diags...)
 
-	ui := make([]string, 0, len(plan.Users.Elements()))
-	diags = plan.Users.ElementsAs(ctx, &ui, false)
-	resp.Diagnostics.Append(diags...)
+	var ui []string
+	if !plan.Users.IsNull() {
+		ui = make([]string, 0, len(plan.Users.Elements()))
+		diags = plan.Users.ElementsAs(ctx, &ui, false)
+		resp.Diagnostics.Append(diags...)
+	} else {
+		ui = nil
+	}
 
 	var ri []string
 	var p []string
-	if plan.RbacEnabled.ValueBool() == true {
+	if plan.RbacEnabled.ValueBool() {
 		ri = make([]string, 0, len(plan.Roles.Elements()))
 		diags = plan.Roles.ElementsAs(ctx, &ri, false)
+		resp.Diagnostics.Append(diags...)
 		p = nil
 	} else {
 		p = make([]string, 0, len(plan.Privileges.Elements()))
 		diags = plan.Privileges.ElementsAs(ctx, &p, false)
+		resp.Diagnostics.Append(diags...)
 		ri = nil
 	}
 
