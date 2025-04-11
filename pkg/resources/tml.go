@@ -143,16 +143,24 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	}
 
 	metadata := c[0]
-	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
-	ogids := re.FindAllStringSubmatch(tml, -1)
+	re := regexp.MustCompile(`(\w*guid):\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
+	ogidsTmp := re.FindAllStringSubmatch(tml, -1)
 	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
 	var guids []MetadataGuidModel
 
+	var ogids [][]string
+	for _, match := range ogidsTmp {
+		key := match[1]
+		if key != "view_guid" {
+			ogids = append(ogids, match)
+		}
+	}
+
 	tmlExport := metadata.Edoc
-	for j := range cgids {
+	for j := range ogids {
 		guid := MetadataGuidModel{
-			Original: types.StringValue(ogids[j][1]),
-			Computed: types.StringValue(cgids[j][1]),
+			Original: types.StringValue(ogids[j][2]),
+			Computed: types.StringValue(cgids[j][2]),
 		}
 		tmlExport = strings.Replace(tml, guid.Computed.ValueString(), guid.Original.ValueString(), 1)
 		guids = append(guids, guid)
