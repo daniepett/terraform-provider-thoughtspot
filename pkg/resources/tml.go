@@ -149,7 +149,7 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	var guids []MetadataGuidModel
 
 	tmlExport := metadata.Edoc
-	for j := range ogids {
+	for j := range cgids {
 		guid := MetadataGuidModel{
 			Original: types.StringValue(ogids[j][1]),
 			Computed: types.StringValue(cgids[j][1]),
@@ -203,7 +203,7 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if c[0].Response.Status.StatusCode == "ERROR" {
 		resp.Diagnostics.AddError(
 			"Error importing TML",
-			"Could not import tml , unexpected error: " + c[0].Response.Status.ErrorMessage,
+			"Could not import tml , unexpected error: "+c[0].Response.Status.ErrorMessage,
 		)
 		return
 	}
