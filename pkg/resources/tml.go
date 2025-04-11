@@ -116,7 +116,7 @@ func (r *TmlResource) Configure(_ context.Context, req resource.ConfigureRequest
 	r.client = client
 }
 
-func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml string) (*TmlResourceModel, diag.Diagnostics) {
+func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml string, existingGuids []MetadataGuidModel) (*TmlResourceModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	cr := models.ExportMetadataTMLRequest{
@@ -143,21 +143,31 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	}
 
 	metadata := c[0]
-	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
-	ogids := re.FindAllStringSubmatch(tml, -1)
-	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
+
 	var guids []MetadataGuidModel
 
-	tmlExport := metadata.Edoc
-	for j := range ogids {
-		guid := MetadataGuidModel{
-			Original: types.StringValue(ogids[j][1]),
-			Computed: types.StringValue(cgids[j][1]),
-		}
-		tmlExport = strings.Replace(tml, guid.Computed.ValueString(), guid.Original.ValueString(), 1)
-		guids = append(guids, guid)
+	if existingGuids != nil {
+		guids = existingGuids
+	} else {
+		re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
+		ogids := re.FindAllStringSubmatch(tml, -1)
+		cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
+		for j := range ogids {
+			guid := MetadataGuidModel{
+				Original: types.StringValue(ogids[j][1]),
+				Computed: types.StringValue(cgids[j][1]),
+			}
+			guids = append(guids, guid)
 
+		}
 	}
+
+	tmlExport := metadata.Edoc
+
+	for _, guid := range guids {
+		tmlExport = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
+	}
+
 	lg, diag := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: MetadataGuidModel{}.attrTypes()}, guids)
 
 	diags.Append(diag...)
@@ -209,7 +219,7 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 	id := c[0].Response.Header["id_guid"].(string)
 
-	ex, _ := exportTml(ctx, r.client, id, plan.Tml.ValueString())
+	ex, _ := exportTml(ctx, r.client, id, plan.Tml.ValueString(), nil)
 
 	// Map response body to schema and populate Computed attribute values
 	plan.ID = types.StringValue(id)
@@ -231,7 +241,10 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	diags := req.State.Get(ctx, &state)
 	resp.Diagnostics.Append(diags...)
 
-	ex, _ := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString())
+	var guids []MetadataGuidModel
+	diags = state.Guids.ElementsAs(ctx, &guids, false)
+	resp.Diagnostics.Append(diags...)
+	ex, _ := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString(), guids)
 
 	if ex == nil {
 		resp.State.RemoveResource(ctx)
@@ -283,7 +296,7 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	}
 
-	ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), tml)
+	ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), tml, nil)
 	resp.Diagnostics.Append(diag...)
 
 	plan.Tml = ex.Tml
