@@ -15,7 +15,7 @@ description: |-
 ```terraform
 resource "thoughtspot_share_metadata" "this" {
   metadata_type        = "LIVEBOARD"
-  metadata_identifier  = "Some Liveboard"
+  metadata_identifiers = ["Test 1", "Test 2"]
   principal_type       = "USER_GROUP"
   principal_identifier = "TEST"
   discoverable         = true
@@ -29,13 +29,14 @@ resource "thoughtspot_share_metadata" "this" {
 ### Required
 
 - `discoverable` (Boolean) Flag to make the object discoverable.
-- `metadata_identifier` (String) Unique ID or name of metadata object.
+- `metadata_identifiers` (List of String) Unique ID or name of metadata object. Note: All the names should belong to same metadata_type
 - `metadata_type` (String) Type of metadata. Required if identifier in metadata_identifier is a name.
-- `principal_identifier` (String) Unique ID or name of the principal object such as a user or group.
+- `principal_identifiers` (List of String) Unique IDs or names of the principal object such as a user or group.
 - `principal_type` (String) Principal type. Accepts `USER`, `USER_GROUP`
 
 ### Optional
 
+- `notify_on_share` (Boolean) Flag to notify user when any object is shared.
 - `share_mode` (String) Type of access to the shared object. Accepts `READ_ONLY`, `MODIFY`, `NO_ACCESS`
 
 ### Read-Only

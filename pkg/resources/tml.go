@@ -192,6 +192,7 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	cr := models.ImportMetadataTMLRequest{
 		MetadataTmls: []string{plan.Tml.ValueString()},
+		ImportPolicy: "ALL_OR_NONE",
 		CreateNew:    true,
 	}
 
@@ -287,9 +288,10 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	cr := models.ImportMetadataTMLRequest{
 		MetadataTmls: []string{tml},
+		ImportPolicy: "ALL_OR_NONE",
 	}
 
-	_, err := r.client.ImportMetadataTML(cr)
+	c, err := r.client.ImportMetadataTML(cr)
 
 	if err != nil {
 		resp.Diagnostics.AddError(
@@ -298,6 +300,14 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		)
 		return
 
+	}
+
+	if c[0].Response.Status.StatusCode == "ERROR" {
+		resp.Diagnostics.AddError(
+			"Error importing TML",
+			"Could not import tml , unexpected error: "+c[0].Response.Status.ErrorMessage,
+		)
+		return
 	}
 
 	// ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), plan.Tml.ValueString(), nil)

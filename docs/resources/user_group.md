@@ -41,7 +41,7 @@ resource "thoughtspot_user_group" "this" {
 - `roles` (List of String)
 - `sub_groups` (List of String)
 - `type` (String)
-- `users` (List of String)
+- `users` (List of String) List of user names to add to the user group, if not defined Terraform will not manage user assignment to the group
 - `visibility` (String)
 
 ### Read-Only
