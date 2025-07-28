@@ -345,8 +345,6 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	id := c[0].Response.Header["id_guid"].(string)
-	plan.ID = types.StringValue(id)
 	// ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), plan.Tml.ValueString(), nil)
 	// resp.Diagnostics.Append(diag...)
 
