@@ -267,9 +267,6 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 	for _, metadata := range c.MetadataPermissionDetails {
 		ids = append(ids, metadata.MetadataId)
 	}
-	p := c.MetadataPermissionDetails[0].PrincipalPermissionInfo[0].PrincipalPermissions[0].Permission
-
-	state.ShareMode = types.StringValue(p)
 
 	state.MetadataIdentifiers, diags = types.SetValueFrom(ctx, types.StringType, ids)
 	resp.Diagnostics.Append(diags...)
