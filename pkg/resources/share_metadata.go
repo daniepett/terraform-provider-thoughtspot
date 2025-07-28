@@ -11,8 +11,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/setplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringdefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
@@ -37,9 +37,9 @@ type ShareMetadataResource struct {
 type ShareMetadataResourceModel struct {
 	ID                   types.String `tfsdk:"id"`
 	MetadataType         types.String `tfsdk:"metadata_type"`
-	MetadataIdentifiers  types.List   `tfsdk:"metadata_identifiers"`
+	MetadataIdentifiers  types.Set    `tfsdk:"metadata_identifiers"`
 	PrincipalType        types.String `tfsdk:"principal_type"`
-	PrincipalIdentifiers types.List   `tfsdk:"principal_identifiers"`
+	PrincipalIdentifiers types.Set    `tfsdk:"principal_identifiers"`
 	ShareMode            types.String `tfsdk:"share_mode"`
 	Discoverable         types.Bool   `tfsdk:"discoverable"`
 	NotifyOnShare        types.Bool   `tfsdk:"notify_on_share"`
@@ -75,12 +75,12 @@ func (r *ShareMetadataResource) Schema(_ context.Context, _ resource.SchemaReque
 						"CONNECTION"}...),
 				},
 			},
-			"metadata_identifiers": schema.ListAttribute{
+			"metadata_identifiers": schema.SetAttribute{
 				Required:    true,
 				ElementType: types.StringType,
 				Description: "Unique ID or name of metadata object. Note: All the names should belong to same metadata_type",
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.RequiresReplace(),
 				},
 			},
 			"principal_type": schema.StringAttribute{
@@ -95,12 +95,12 @@ func (r *ShareMetadataResource) Schema(_ context.Context, _ resource.SchemaReque
 						"USER_GROUP"}...),
 				},
 			},
-			"principal_identifiers": schema.ListAttribute{
+			"principal_identifiers": schema.SetAttribute{
 				Required:    true,
 				ElementType: types.StringType,
 				Description: "Unique IDs or names of the principal object such as a user or group.",
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.RequiresReplace(),
+				PlanModifiers: []planmodifier.Set{
+					setplanmodifier.RequiresReplace(),
 				},
 			},
 			"share_mode": schema.StringAttribute{
@@ -271,7 +271,7 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 
 	state.ShareMode = types.StringValue(p)
 
-	state.MetadataIdentifiers, diags = types.ListValueFrom(ctx, types.StringType, ids)
+	state.MetadataIdentifiers, diags = types.SetValueFrom(ctx, types.StringType, ids)
 	resp.Diagnostics.Append(diags...)
 
 	// Set refreshed state
