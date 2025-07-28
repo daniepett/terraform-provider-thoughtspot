@@ -247,9 +247,11 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 
 	c, err := r.client.FetchPermissionsOnMetadata(cr)
 	if err != nil {
+		// TODO: Fix removal only on Error 400 when metadata ids are not found
+		resp.State.RemoveResource(ctx)
 		resp.Diagnostics.AddError(
-			"Error Reading User Group",
-			"Could not read User Group ID "+state.ID.ValueString()+": "+err.Error(),
+			"Error Reading Metadata share",
+			"Could not read metadata for "+state.ID.ValueString()+": "+err.Error(),
 		)
 		return
 	}
