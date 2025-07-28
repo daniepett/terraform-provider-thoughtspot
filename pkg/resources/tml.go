@@ -52,6 +52,38 @@ func (o TmlGuidModel) attrTypes() map[string]attr.Type {
 	}
 }
 
+func requiresReplaceIfGuidChanged() planmodifier.String {
+	return requiresReplaceIfGuidChangedModifier{}
+}
+
+type requiresReplaceIfGuidChangedModifier struct{}
+
+func (m requiresReplaceIfGuidChangedModifier) Description(ctx context.Context) string {
+	return "Forces replacement if the guid changes"
+}
+
+func (m requiresReplaceIfGuidChangedModifier) MarkdownDescription(ctx context.Context) string {
+	return "Forces replacement if the guid changes"
+}
+
+func (m requiresReplaceIfGuidChangedModifier) PlanModifyString(ctx context.Context, req planmodifier.StringRequest, resp *planmodifier.StringResponse) {
+	if req.ConfigValue.IsNull() || req.StateValue.IsNull() {
+		return
+	}
+
+	if req.ConfigValue.Equal(req.StateValue) {
+		return
+	}
+
+	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
+	currentGuids := re.FindAllStringSubmatch(req.StateValue.String(), -1)
+	newGuids := re.FindAllStringSubmatch(req.ConfigValue.String(), -1)
+	// Checks the first guid value hasn't changed
+	if currentGuids[0][1] != newGuids[0][1] {
+		resp.RequiresReplace = true
+	}
+}
+
 // Metadata returns the resource type name.
 func (r *TmlResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_tml"
@@ -69,6 +101,9 @@ func (r *TmlResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 			},
 			"tml": schema.StringAttribute{
 				Required: true,
+				PlanModifiers: []planmodifier.String{
+					requiresReplaceIfGuidChanged(),
+				},
 			},
 			"guids": schema.ListNestedAttribute{
 				NestedObject: schema.NestedAttributeObject{
@@ -310,6 +345,8 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
+	id := c[0].Response.Header["id_guid"].(string)
+	plan.ID = types.StringValue(id)
 	// ex, diag := exportTml(ctx, r.client, plan.ID.ValueString(), plan.Tml.ValueString(), nil)
 	// resp.Diagnostics.Append(diag...)
 
