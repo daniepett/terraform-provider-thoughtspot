@@ -7,7 +7,7 @@ import (
 	// "slices"
 	thoughtspot "github.com/daniepett/thoughtspot-sdk-go"
 	"github.com/daniepett/thoughtspot-sdk-go/models"
-	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/setvalidator"
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -75,7 +75,7 @@ type RoleResourceModel struct {
 	ID          types.String `tfsdk:"id"`
 	Name        types.String `tfsdk:"name"`
 	Description types.String `tfsdk:"description"`
-	Privileges  types.List   `tfsdk:"privileges"`
+	Privileges  types.Set    `tfsdk:"privileges"`
 }
 
 // Role returns the resource type name.
@@ -101,11 +101,11 @@ func (r *RoleResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 				Computed: true,
 				Default:  stringdefault.StaticString(""),
 			},
-			"privileges": schema.ListAttribute{
+			"privileges": schema.SetAttribute{
 				ElementType: types.StringType,
 				Optional:    true,
-				Validators: []validator.List{
-					listvalidator.ValueStringsAre(stringvalidator.OneOf(globalAllPrivileges...)),
+				Validators: []validator.Set{
+					setvalidator.ValueStringsAre(stringvalidator.OneOf(globalAllPrivileges...)),
 				},
 			},
 		},
@@ -214,7 +214,7 @@ func (r *RoleResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	// 	}
 	// }
 
-	state.Privileges, diags = types.ListValueFrom(ctx, types.StringType, m.Privileges)
+	state.Privileges, diags = types.SetValueFrom(ctx, types.StringType, m.Privileges)
 	resp.Diagnostics.Append(diags...)
 
 	// Set refreshed state
