@@ -245,8 +245,8 @@ func (r *MetadataResource) Create(ctx context.Context, req resource.CreateReques
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating data connection",
-			"Could not create connection, unexpected error: "+err.Error(),
+			"Error importing Metadata",
+			"Could not import metadata , unexpected error: "+c[0].Response.Status.ErrorMessage,
 		)
 		return
 	}
@@ -339,8 +339,8 @@ func (r *MetadataResource) Update(ctx context.Context, req resource.UpdateReques
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating data connection",
-			"Could not create connection, unexpected error: "+err.Error(),
+			"Error importing Metadata",
+			"Could not import metadata , unexpected error: "+c[0].Response.Status.ErrorMessage,
 		)
 		return
 	}

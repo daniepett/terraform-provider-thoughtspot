@@ -235,8 +235,8 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating data connection",
-			"Could not create connection, unexpected error: "+err.Error(),
+			"Error importing TML",
+			"Could not import tml , unexpected error: "+c[0].Response.Status.ErrorMessage,
 		)
 		return
 	}
@@ -330,8 +330,8 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error creating data connection",
-			"Could not create connection, unexpected error: "+err.Error(),
+			"Error importing TML",
+			"Could not import tml , unexpected error: "+c[0].Response.Status.ErrorMessage,
 		)
 		return
 
