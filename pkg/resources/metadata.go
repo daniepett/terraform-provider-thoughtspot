@@ -339,7 +339,7 @@ func (r *MetadataResource) Update(ctx context.Context, req resource.UpdateReques
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error importing Metadata",
+			"Error importing metadata",
 			"Could not import metadata , unexpected error: "+c[0].Response.Status.ErrorMessage,
 		)
 		return
