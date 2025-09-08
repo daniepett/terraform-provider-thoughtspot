@@ -246,13 +246,8 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	c, err := r.client.FetchPermissionsOnMetadata(cr)
-	if err != nil {
-		// TODO: Fix removal only on Error 400 when metadata ids are not found
+	if err != nil || c == nil {
 		resp.State.RemoveResource(ctx)
-		// resp.Diagnostics.AddError(
-		// 	"Error Reading Metadata share",
-		// 	"Could not read metadata for "+state.ID.ValueString()+": "+err.Error(),
-		// )
 		return
 	}
 
