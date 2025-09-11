@@ -30,7 +30,7 @@ resource "thoughtspot_role" "this" {
 ### Optional
 
 - `description` (String)
-- `privileges` (List of String)
+- `privileges` (Set of String)
 
 ### Read-Only
 
