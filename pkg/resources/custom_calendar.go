@@ -6,16 +6,15 @@ import (
 
 	thoughtspot "github.com/daniepett/thoughtspot-sdk-go"
 	"github.com/daniepett/thoughtspot-sdk-go/models"
-	"github.com/hashicorp/terraform-plugin-framework/attr"
+	"github.com/hashicorp/terraform-plugin-framework-validators/objectvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listdefault"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // Ensure the implementation satisfies the expected interfaces.
@@ -34,20 +33,24 @@ type CustomCalendarResource struct {
 }
 
 type CustomCalendarResourceModel struct {
-	ID           types.String `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	DatabaseName types.String `tfsdk:"database_name"`
+	ID                types.String `tfsdk:"id"`
+	Name              types.String `tfsdk:"name"`
+	ExistingTable     types.Bool   `tfsdk:"existing_table"`
+	TableReference    types.Object `tfsdk:"table_reference"`
+	StartDate         types.String `tfsdk:"start_date"`
+	EndDate           types.String `tfsdk:"end_date"`
+	CalendarType      types.String `tfsdk:"calendar_type"`
+	MonthOffset       types.String `tfsdk:"month_offset"`
+	StartDayOfWeek    types.String `tfsdk:"start_day_of_week"`
+	QuarterNamePrefix types.String `tfsdk:"quarter_name_prefix"`
+	YearNamePrefix    types.String `tfsdk:"year_name_prefix"`
+}
 
-	DisplayName       types.String `tfsdk:"display_name"`
-	DefaultLiveboards types.List   `tfsdk:"default_liveboards"`
-	Description       types.String `tfsdk:"description"`
-	Privileges        types.List   `tfsdk:"privileges"`
-	SubGroups         types.List   `tfsdk:"sub_groups"`
-	Type              types.String `tfsdk:"type"`
-	Users             types.List   `tfsdk:"users"`
-	Visibility        types.String `tfsdk:"visibility"`
-	Roles             types.List   `tfsdk:"roles"`
-	RbacEnabled       types.Bool   `tfsdk:"rbac_enabled"`
+type CustomCalendarTableReferenceModel struct {
+	ConnectionIdentifier types.String `tfsdk:"connection_identifier"`
+	DatabaseName         types.String `tfsdk:"database_name"`
+	SchemaName           types.String `tfsdk:"schema_name"`
+	TableName            types.String `tfsdk:"table_name"`
 }
 
 // CustomCalendar returns the resource type name.
@@ -66,73 +69,99 @@ func (r *CustomCalendarResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 			},
 			"name": schema.StringAttribute{
-				Required: true,
-			},
-			"display_name": schema.StringAttribute{
-				Required: true,
-			},
-			"default_liveboards": schema.ListAttribute{
-				ElementType: types.StringType,
-				Optional:    true,
-				Computed:    true,
-				Default: listdefault.StaticValue(types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)),
-			},
-			"description": schema.StringAttribute{
-				Optional: true,
-			},
-			"privileges": schema.ListAttribute{
-				ElementType: types.StringType,
-				Optional:    true,
-				Computed:    true,
-				Default: listdefault.StaticValue(types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)),
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
+				Required:    true,
+				Description: "Name of the custom calendar.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"sub_groups": schema.ListAttribute{
-				ElementType: types.StringType,
+			"existing_table": schema.BoolAttribute{
+				Required:    true,
+				Description: "Defines the creation method",
+			},
+			"start_date": schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default: listdefault.StaticValue(types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)),
-				PlanModifiers: []planmodifier.List{
-					listplanmodifier.UseStateForUnknown(),
+				Description: "Start date for the calendar in MM/dd/yyyy format.",
+			},
+			"end_date": schema.StringAttribute{
+				Optional:    true,
+				Description: "End date for the calendar in MM/dd/yyyy format.",
+			},
+			"calendar_type": schema.StringAttribute{
+				Optional:    true,
+				Description: "Type of the calendar.",
+				Validators: []validator.String{
+					stringvalidator.OneOf([]string{
+						"MONTH_OFFSET",
+						"FOUR_FOUR_FIVE",
+						"FOUR_FIVE_FOUR",
+						"FIVE_FOUR_FOUR"}...),
 				},
 			},
-			"type": schema.StringAttribute{
-				Optional: true,
-			},
-			"users": schema.ListAttribute{
-				ElementType: types.StringType,
-				Description: "List of user names to add to the user group, if not defined Terraform will not manage user assignment to the group",
+			"month_offset": schema.StringAttribute{
 				Optional:    true,
+				Description: "Specify the month in which the fiscal or custom calendar year should start. For example, if you set month_offset to \"April\", the custom calendar will treat \"April\" as the first month of the year, and the related attributes such as quarters and start date will be based on this offset. The default value is January, which represents the standard calendar year (January to December).",
+				Validators: []validator.String{
+					stringvalidator.OneOf([]string{
+						"January",
+						"February",
+						"March",
+						"April",
+						"May",
+						"June",
+						"July",
+						"August",
+						"September",
+						"October",
+						"November",
+						"December"}...),
+				},
 			},
-			"visibility": schema.StringAttribute{
-				Optional: true,
-			},
-			"roles": schema.ListAttribute{
-				ElementType: types.StringType,
+			"start_day_of_week": schema.StringAttribute{
 				Optional:    true,
-				Computed:    true,
-				Default: listdefault.StaticValue(types.ListValueMust(
-					types.StringType,
-					[]attr.Value{},
-				)),
+				Description: "Specify the starting day of the week.",
+				Validators: []validator.String{
+					stringvalidator.OneOf([]string{
+						"Sunday",
+						"Monday",
+						"Tuesday",
+						"Wednesday",
+						"Thursday",
+						"Friday",
+						"Saturday"}...),
+				},
 			},
-			"rbac_enabled": schema.BoolAttribute{
-				Optional: true,
-				Computed: true,
-				Default:  booldefault.StaticBool(false),
-				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.UseStateForUnknown(),
+			"quarter_name_prefix": schema.StringAttribute{
+				Optional:    true,
+				Description: "Prefix to add before the quarter.",
+			},
+			"year_name_prefix": schema.StringAttribute{
+				Optional:    true,
+				Description: "Prefix to add before the year.",
+			},
+		},
+		Blocks: map[string]schema.Block{
+			"table_reference": schema.SingleNestedBlock{
+				Validators: []validator.Object{
+					objectvalidator.IsRequired(),
+				},
+				Attributes: map[string]schema.Attribute{
+					"connection_identifier": schema.StringAttribute{
+						Optional:    true,
+						Description: "Unique ID or name of the connection.",
+					},
+					"database_name": schema.StringAttribute{
+						Optional:    true,
+						Description: "Name of the database.",
+					},
+					"schema_name": schema.StringAttribute{
+						Optional:    true,
+						Description: "Name of the schema.",
+					},
+					"table_name": schema.StringAttribute{
+						Optional:    true,
+						Description: "Name of the table. Table names may be case-sensitive depending on the database system.",
+					},
 				},
 			},
 		},
@@ -169,51 +198,37 @@ func (r *CustomCalendarResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 
-	dli := make([]string, 0, len(plan.DefaultLiveboards.Elements()))
-	diags = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
-	resp.Diagnostics.Append(diags...)
-
-	sgi := make([]string, 0, len(plan.SubGroups.Elements()))
-	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
-	resp.Diagnostics.Append(diags...)
-
-	var ui []string
-	if !plan.Users.IsNull() {
-		ui = make([]string, 0, len(plan.Users.Elements()))
-		diags = plan.Users.ElementsAs(ctx, &ui, false)
-		resp.Diagnostics.Append(diags...)
+	var cm string
+	if plan.ExistingTable.ValueBool() {
+		cm = "FROM_EXISTING_TABLE"
 	} else {
-		ui = nil
+		cm = "FROM_INPUT_PARAMS"
 	}
 
-	var ri []string
-	var p []string
-	if plan.RbacEnabled.ValueBool() {
-		ri = make([]string, 0, len(plan.Roles.Elements()))
-		diags = plan.Roles.ElementsAs(ctx, &ri, false)
-		resp.Diagnostics.Append(diags...)
-		p = nil
-	} else {
-		p = make([]string, 0, len(plan.Privileges.Elements()))
-		diags = plan.Privileges.ElementsAs(ctx, &p, false)
-		resp.Diagnostics.Append(diags...)
+	var tr CustomCalendarTableReferenceModel
 
-	}
+	diags = plan.TableReference.As(ctx, &tr, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
 
 	cr := models.CreateCustomCalendarRequest{
-		Name:                        plan.Name.ValueString(),
-		DisplayName:                 plan.DisplayName.ValueString(),
-		DefaultLiveboardIdentifiers: dli,
-		Description:                 plan.Description.ValueString(),
-		Privileges:                  p,
-		SubGroupIdentifiers:         sgi,
-		Type:                        plan.Type.ValueString(),
-		UserIdentifiers:             ui,
-		Visibility:                  plan.Visibility.ValueString(),
-		RoleIdentifiers:             ri,
+		Name:           plan.Name.ValueString(),
+		CreationMethod: cm,
+		TableReference: models.CustomCalendarTableReference{
+			ConnectionIdentifier: tr.ConnectionIdentifier.ValueString(),
+			DatabaseName:         tr.DatabaseName.ValueString(),
+			SchemaName:           tr.SchemaName.ValueString(),
+			TableName:            tr.TableName.ValueString(),
+		},
+		StartDate:         plan.StartDate.ValueString(),
+		EndDate:           plan.EndDate.ValueString(),
+		CalendarType:      plan.CalendarType.ValueString(),
+		MonthOffset:       plan.MonthOffset.ValueString(),
+		StartDayOfWeek:    plan.StartDayOfWeek.ValueString(),
+		QuarterNamePrefix: plan.QuarterNamePrefix.ValueString(),
+		YearNamePrefix:    plan.YearNamePrefix.ValueString(),
 	}
 
-	c, err := r.client.CreateCustomCalendar(cr)
+	c, err := r.client.CreateCalendar(cr)
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error creating user group",
@@ -223,9 +238,7 @@ func (r *CustomCalendarResource) Create(ctx context.Context, req resource.Create
 	}
 
 	// Map response body to schema and populate Computed attribute values
-	plan.ID = types.StringValue(c.Id)
-	// plan.Name = types.StringValue(m["name"].(string))
-	// plan.Type = types.StringValue(m["CustomCalendar_type"].(string))
+	plan.ID = types.StringValue(c.CalendarId)
 
 	// Set state to fully populated data
 	diags = resp.State.Set(ctx, plan)
@@ -246,75 +259,27 @@ func (r *CustomCalendarResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	cr := models.SearchCustomCalendarsRequest{
-		GroupIdentifier: state.ID.ValueString(),
+		NamePattern: state.Name.ValueString(),
+		RecordSize:  "1",
 	}
 
-	c, err := r.client.SearchCustomCalendars(cr)
+	c, err := r.client.SearchCalendars(cr)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error Reading User Group",
-			"Could not read User Group ID "+state.ID.ValueString()+": "+err.Error(),
+			"Error Reading Custom Calendar",
+			"Could not read Custom Calendars "+state.Name.ValueString()+": "+err.Error(),
 		)
 		return
 	}
 
 	if len(c) == 0 {
 		resp.State.RemoveResource(ctx)
-
 		return
 	}
 
-	m := c[0]
+	cal := c[0]
 
-	users := make([]string, len(m.Users))
-	if !state.Users.IsNull() {
-		for i := range m.Users {
-			users[i] = m.Users[i].Name
-		}
-	} else {
-		users = nil
-	}
-
-	sg := make([]string, len(m.SubGroups))
-	for i := range m.SubGroups {
-		sg[i] = m.SubGroups[i].Name
-	}
-
-	dl := make([]string, len(m.DefaultLiveboards))
-	for i := range m.DefaultLiveboards {
-		dl[i] = m.DefaultLiveboards[i].Id
-	}
-
-	state.Name = types.StringValue(m.Name)
-	state.DisplayName = types.StringValue(m.DisplayName)
-	state.Description = types.StringValue(m.Description)
-	state.Type = types.StringValue(m.Type)
-	state.Users, _ = types.ListValueFrom(ctx, types.StringType, users)
-	state.SubGroups, _ = types.ListValueFrom(ctx, types.StringType, sg)
-	state.DefaultLiveboards, _ = types.ListValueFrom(ctx, types.StringType, dl)
-	state.Visibility = types.StringValue(m.Visibility)
-
-	if state.RbacEnabled.ValueBool() {
-		roles := make([]string, len(m.Roles))
-		for i := range m.Roles {
-			roles[i] = m.Roles[i].Id
-		}
-		state.Roles, diags = types.ListValueFrom(ctx, types.StringType, roles)
-		resp.Diagnostics.Append(diags...)
-		state.Privileges = types.ListValueMust(
-			types.StringType,
-			[]attr.Value{},
-		)
-	} else {
-		state.Roles = types.ListValueMust(
-			types.StringType,
-			[]attr.Value{},
-		)
-		state.Privileges, diags = types.ListValueFrom(ctx, types.StringType, m.Privileges)
-		resp.Diagnostics.Append(diags...)
-	}
-
-	fmt.Print("This is state", state)
+	state.Name = types.StringValue(cal.CalendarName)
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -333,55 +298,40 @@ func (r *CustomCalendarResource) Update(ctx context.Context, req resource.Update
 		return
 	}
 
-	dli := make([]string, 0, len(plan.DefaultLiveboards.Elements()))
-	diags = plan.DefaultLiveboards.ElementsAs(ctx, &dli, false)
-	resp.Diagnostics.Append(diags...)
-
-	sgi := make([]string, 0, len(plan.SubGroups.Elements()))
-	diags = plan.SubGroups.ElementsAs(ctx, &sgi, false)
-	resp.Diagnostics.Append(diags...)
-
-	var ui []string
-	if !plan.Users.IsNull() {
-		ui = make([]string, 0, len(plan.Users.Elements()))
-		diags = plan.Users.ElementsAs(ctx, &ui, false)
-		resp.Diagnostics.Append(diags...)
+	var cm string
+	if plan.ExistingTable.ValueBool() {
+		cm = "FROM_EXISTING_TABLE"
 	} else {
-		ui = nil
+		cm = "FROM_INPUT_PARAMS"
 	}
 
-	var ri []string
-	var p []string
-	if plan.RbacEnabled.ValueBool() {
-		ri = make([]string, 0, len(plan.Roles.Elements()))
-		diags = plan.Roles.ElementsAs(ctx, &ri, false)
-		resp.Diagnostics.Append(diags...)
-		p = nil
-	} else {
-		p = make([]string, 0, len(plan.Privileges.Elements()))
-		diags = plan.Privileges.ElementsAs(ctx, &p, false)
-		resp.Diagnostics.Append(diags...)
-		ri = nil
-	}
+	var tr CustomCalendarTableReferenceModel
+
+	diags = plan.TableReference.As(ctx, &tr, basetypes.ObjectAsOptions{})
+	resp.Diagnostics.Append(diags...)
 
 	cr := models.UpdateCustomCalendarRequest{
-		Name:                        plan.Name.ValueString(),
-		DisplayName:                 plan.DisplayName.ValueString(),
-		DefaultLiveboardIdentifiers: dli,
-		Description:                 plan.Description.ValueString(),
-		Privileges:                  p,
-		SubGroupIdentifiers:         sgi,
-		Type:                        plan.Type.ValueString(),
-		UserIdentifiers:             ui,
-		Visibility:                  plan.Visibility.ValueString(),
-		RoleIdentifiers:             ri,
+		UpdateMethod: cm,
+		TableReference: models.CustomCalendarTableReference{
+			ConnectionIdentifier: tr.ConnectionIdentifier.ValueString(),
+			DatabaseName:         tr.DatabaseName.ValueString(),
+			SchemaName:           tr.SchemaName.ValueString(),
+			TableName:            tr.TableName.ValueString(),
+		},
+		StartDate:         plan.StartDate.ValueString(),
+		EndDate:           plan.EndDate.ValueString(),
+		CalendarType:      plan.CalendarType.ValueString(),
+		MonthOffset:       plan.MonthOffset.ValueString(),
+		StartDayOfWeek:    plan.StartDayOfWeek.ValueString(),
+		QuarterNamePrefix: plan.QuarterNamePrefix.ValueString(),
+		YearNamePrefix:    plan.YearNamePrefix.ValueString(),
 	}
 
-	err := r.client.UpdateCustomCalendar(plan.ID.ValueString(), cr)
+	err := r.client.UpdateCalendar(plan.ID.ValueString(), cr)
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error updating User Group",
-			"Could not update User Group, unexpected error: "+err.Error(),
+			"Error updating Custom Calendar",
+			"Could not update Custom Calendar, unexpected error: "+err.Error(),
 		)
 		return
 	}
@@ -402,12 +352,12 @@ func (r *CustomCalendarResource) Delete(ctx context.Context, req resource.Delete
 		return
 	}
 
-	err := r.client.DeleteCustomCalendar(state.ID.ValueString())
+	err := r.client.DeleteCalendar(state.ID.ValueString())
 
 	if err != nil {
 		resp.Diagnostics.AddError(
-			"Error deleting User Group",
-			"Could not User Group, unexpected error: "+err.Error(),
+			"Error deleting Custom Calendar",
+			"Could not delete custom calendar, unexpected error: "+err.Error(),
 		)
 		return
 	}

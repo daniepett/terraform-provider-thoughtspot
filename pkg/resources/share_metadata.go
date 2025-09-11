@@ -246,14 +246,17 @@ func (r *ShareMetadataResource) Read(ctx context.Context, req resource.ReadReque
 	}
 
 	c, err := r.client.FetchPermissionsOnMetadata(cr)
-	if err != nil || c == nil {
-		resp.State.RemoveResource(ctx)
+
+	if err != nil {
+		resp.Diagnostics.AddError(
+			"Error updating reading Metadata Share",
+			"Could not read metadata share, unexpected error: "+err.Error(),
+		)
 		return
 	}
 
-	if len(c.MetadataPermissionDetails) == 0 {
+	if (c == nil) || (len(c.MetadataPermissionDetails) == 0) {
 		resp.State.RemoveResource(ctx)
-
 		return
 	}
 

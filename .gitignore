@@ -31,6 +31,7 @@ share/python-wheels/
 MANIFEST
 /requirements.txt
 .ruff_cache
+bin/
 
 
 # PyInstaller

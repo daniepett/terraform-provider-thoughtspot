@@ -29,9 +29,9 @@ resource "thoughtspot_share_metadata" "this" {
 ### Required
 
 - `discoverable` (Boolean) Flag to make the object discoverable.
-- `metadata_identifiers` (List of String) Unique ID or name of metadata object. Note: All the names should belong to same metadata_type
+- `metadata_identifiers` (Set of String) Unique ID or name of metadata object. Note: All the names should belong to same metadata_type
 - `metadata_type` (String) Type of metadata. Required if identifier in metadata_identifier is a name.
-- `principal_identifiers` (List of String) Unique IDs or names of the principal object such as a user or group.
+- `principal_identifiers` (Set of String) Unique IDs or names of the principal object such as a user or group.
 - `principal_type` (String) Principal type. Accepts `USER`, `USER_GROUP`
 
 ### Optional
