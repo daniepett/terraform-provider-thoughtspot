@@ -48,17 +48,17 @@ resource "thoughtspot_custom_calendar" "input_params" {
 
 ### Required
 
-- `existing_table` (Boolean) Defines the creation method
+- `from_existing_table` (Boolean) Defines the creation method
 - `name` (String) Name of the custom calendar.
 
 ### Optional
 
-- `calendar_type` (String) Type of the calendar.
-- `end_date` (String) End date for the calendar in MM/dd/yyyy format.
-- `month_offset` (String) Specify the month in which the fiscal or custom calendar year should start. For example, if you set month_offset to "April", the custom calendar will treat "April" as the first month of the year, and the related attributes such as quarters and start date will be based on this offset. The default value is January, which represents the standard calendar year (January to December).
+- `calendar_type` (String) Type of the calendar. Accepts `MONTH_OFFSET`, `FOUR_FOUR_FIVE`, `FOUR_FIVE_FOUR`, `FIVE_FOUR_FOUR`
+- `end_date` (String) End date for the calendar in `MM/DD/YYYY` format.
+- `month_offset` (String) Specify the month in which the fiscal or custom calendar year should start. For example, if you set month_offset to "April", the custom calendar will treat "April" as the first month of the year, and the related attributes such as quarters and start date will be based on this offset. The default value is January, which represents the standard calendar year (January to December). Accepts `January`, `February`, `March`, `April`, `May`, `June`, `July`, `August`, `September`, `October`, `November`, `December`
 - `quarter_name_prefix` (String) Prefix to add before the quarter.
-- `start_date` (String) Start date for the calendar in MM/dd/yyyy format.
-- `start_day_of_week` (String) Specify the starting day of the week.
+- `start_date` (String) Start date for the calendar in `MM/DD/YYYY` format.
+- `start_day_of_week` (String) Specify the starting day of the week. Accepts `Sunday`, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`
 - `table_reference` (Block, Optional) (see [below for nested schema](#nestedblock--table_reference))
 - `year_name_prefix` (String) Prefix to add before the year.
 
@@ -69,9 +69,12 @@ resource "thoughtspot_custom_calendar" "input_params" {
 <a id="nestedblock--table_reference"></a>
 ### Nested Schema for `table_reference`
 
-Optional:
+Required:
 
 - `connection_identifier` (String) Unique ID or name of the connection.
+- `table_name` (String) Name of the table. Table names may be case-sensitive depending on the database system.
+
+Optional:
+
 - `database_name` (String) Name of the database.
 - `schema_name` (String) Name of the schema.
-- `table_name` (String) Name of the table. Table names may be case-sensitive depending on the database system.

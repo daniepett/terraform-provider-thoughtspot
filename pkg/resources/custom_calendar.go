@@ -35,7 +35,7 @@ type CustomCalendarResource struct {
 type CustomCalendarResourceModel struct {
 	ID                types.String `tfsdk:"id"`
 	Name              types.String `tfsdk:"name"`
-	ExistingTable     types.Bool   `tfsdk:"existing_table"`
+	FromExistingTable types.Bool   `tfsdk:"from_existing_table"`
 	TableReference    types.Object `tfsdk:"table_reference"`
 	StartDate         types.String `tfsdk:"start_date"`
 	EndDate           types.String `tfsdk:"end_date"`
@@ -75,21 +75,21 @@ func (r *CustomCalendarResource) Schema(_ context.Context, _ resource.SchemaRequ
 					stringplanmodifier.RequiresReplace(),
 				},
 			},
-			"existing_table": schema.BoolAttribute{
+			"from_existing_table": schema.BoolAttribute{
 				Required:    true,
 				Description: "Defines the creation method",
 			},
 			"start_date": schema.StringAttribute{
 				Optional:    true,
-				Description: "Start date for the calendar in MM/dd/yyyy format.",
+				Description: "Start date for the calendar in `MM/DD/YYYY` format.",
 			},
 			"end_date": schema.StringAttribute{
 				Optional:    true,
-				Description: "End date for the calendar in MM/dd/yyyy format.",
+				Description: "End date for the calendar in `MM/DD/YYYY` format.",
 			},
 			"calendar_type": schema.StringAttribute{
 				Optional:    true,
-				Description: "Type of the calendar.",
+				Description: "Type of the calendar. Accepts `MONTH_OFFSET`, `FOUR_FOUR_FIVE`, `FOUR_FIVE_FOUR`, `FIVE_FOUR_FOUR`",
 				Validators: []validator.String{
 					stringvalidator.OneOf([]string{
 						"MONTH_OFFSET",
@@ -100,7 +100,7 @@ func (r *CustomCalendarResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"month_offset": schema.StringAttribute{
 				Optional:    true,
-				Description: "Specify the month in which the fiscal or custom calendar year should start. For example, if you set month_offset to \"April\", the custom calendar will treat \"April\" as the first month of the year, and the related attributes such as quarters and start date will be based on this offset. The default value is January, which represents the standard calendar year (January to December).",
+				Description: "Specify the month in which the fiscal or custom calendar year should start. For example, if you set month_offset to \"April\", the custom calendar will treat \"April\" as the first month of the year, and the related attributes such as quarters and start date will be based on this offset. The default value is January, which represents the standard calendar year (January to December). Accepts `January`, `February`, `March`, `April`, `May`, `June`, `July`, `August`, `September`, `October`, `November`, `December`",
 				Validators: []validator.String{
 					stringvalidator.OneOf([]string{
 						"January",
@@ -119,7 +119,7 @@ func (r *CustomCalendarResource) Schema(_ context.Context, _ resource.SchemaRequ
 			},
 			"start_day_of_week": schema.StringAttribute{
 				Optional:    true,
-				Description: "Specify the starting day of the week.",
+				Description: "Specify the starting day of the week. Accepts `Sunday`, `Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`, `Saturday`",
 				Validators: []validator.String{
 					stringvalidator.OneOf([]string{
 						"Sunday",
@@ -147,7 +147,7 @@ func (r *CustomCalendarResource) Schema(_ context.Context, _ resource.SchemaRequ
 				},
 				Attributes: map[string]schema.Attribute{
 					"connection_identifier": schema.StringAttribute{
-						Optional:    true,
+						Required:    true,
 						Description: "Unique ID or name of the connection.",
 					},
 					"database_name": schema.StringAttribute{
@@ -159,7 +159,7 @@ func (r *CustomCalendarResource) Schema(_ context.Context, _ resource.SchemaRequ
 						Description: "Name of the schema.",
 					},
 					"table_name": schema.StringAttribute{
-						Optional:    true,
+						Required:    true,
 						Description: "Name of the table. Table names may be case-sensitive depending on the database system.",
 					},
 				},
@@ -199,7 +199,7 @@ func (r *CustomCalendarResource) Create(ctx context.Context, req resource.Create
 	}
 
 	var cm string
-	if plan.ExistingTable.ValueBool() {
+	if plan.FromExistingTable.ValueBool() {
 		cm = "FROM_EXISTING_TABLE"
 	} else {
 		cm = "FROM_INPUT_PARAMS"
@@ -299,7 +299,7 @@ func (r *CustomCalendarResource) Update(ctx context.Context, req resource.Update
 	}
 
 	var cm string
-	if plan.ExistingTable.ValueBool() {
+	if plan.FromExistingTable.ValueBool() {
 		cm = "FROM_EXISTING_TABLE"
 	} else {
 		cm = "FROM_INPUT_PARAMS"
