@@ -183,6 +183,13 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
 	ogids := re.FindAllStringSubmatch(tml, -1)
 	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
+	if len(ogids) == 0 || len(cgids) == 0 {
+		diags.AddError(
+			"Could not extract guids from TML",
+			"No guids found for Metadata ID: "+id,
+		)
+		return nil, diags
+	}
 	if existingGuids != nil && len(ogids) != len(cgids) {
 		guids = existingGuids
 	} else {
@@ -254,7 +261,11 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 	}
 	id := c[0].Response.Header["id_guid"].(string)
 
-	ex, _ := exportTml(ctx, r.client, id, plan.Tml.ValueString(), nil)
+	ex, diags := exportTml(ctx, r.client, id, plan.Tml.ValueString(), nil)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
 
 	// Map response body to schema and populate Computed attribute values
 	plan.ID = types.StringValue(id)
@@ -284,7 +295,11 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if guids == nil {
 		guids = []MetadataGuidModel{}
 	}
-	ex, _ := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString(), guids)
+	ex, diags := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString(), guids)
+	if diags.HasError() {
+		resp.Diagnostics.Append(diags...)
+		return
+	}
 
 	if ex == nil {
 		resp.State.RemoveResource(ctx)
