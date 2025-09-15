@@ -179,5 +179,6 @@ func (p *thoughtspotProvider) Resources(_ context.Context) []func() resource.Res
 		resources.NewTmlResource,
 		resources.NewShareMetadataResource,
 		resources.NewCustomCalendarResource,
+		resources.NewEmailCustomizationResource,
 	}
 }
