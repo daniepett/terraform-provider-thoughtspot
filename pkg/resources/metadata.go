@@ -345,6 +345,12 @@ func (r *MetadataResource) Update(ctx context.Context, req resource.UpdateReques
 		return
 	}
 
+	if len(c) == 0 {
+		resp.State.RemoveResource(ctx)
+
+		return
+	}
+
 	var ids []string
 	for _, r := range c {
 		ids = append(ids, r.Response.Header["id_guid"].(string))

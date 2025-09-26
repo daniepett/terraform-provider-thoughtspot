@@ -23,7 +23,7 @@ import (
 var (
 	_ resource.Resource              = &ShareMetadataResource{}
 	_ resource.ResourceWithConfigure = &ShareMetadataResource{}
-	// _ resource.ResourceWithImportState = &spaceResource{}
+	// _ resource.ResourceWithImportState = &ShareMetadataResource{}
 )
 
 func NewShareMetadataResource() resource.Resource {
