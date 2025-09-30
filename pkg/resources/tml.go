@@ -10,8 +10,11 @@ import (
 	"github.com/daniepett/thoughtspot-sdk-go/models"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/boolplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -35,9 +38,10 @@ type TmlResource struct {
 
 // orderResourceModel maps the resource schema data.
 type TmlResourceModel struct {
-	ID    types.String `tfsdk:"id"`
-	Tml   types.String `tfsdk:"tml"`
-	Guids types.List   `tfsdk:"guids"`
+	ID          types.String `tfsdk:"id"`
+	Tml         types.String `tfsdk:"tml"`
+	Guids       types.List   `tfsdk:"guids"`
+	UseObjectId types.Bool   `tfsdk:"use_object_id"`
 }
 
 type TmlGuidModel struct {
@@ -75,12 +79,41 @@ func (m requiresReplaceIfGuidChangedModifier) PlanModifyString(ctx context.Conte
 		return
 	}
 
+	// If we don't have a guid in the state or config, then don't evaluate
+	if !strings.HasPrefix(req.StateValue.String(), "guid:") || !strings.HasPrefix(req.ConfigValue.String(), "guid:") {
+		return
+	}
+
 	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
 	currentGuids := re.FindAllStringSubmatch(req.StateValue.String(), -1)
 	newGuids := re.FindAllStringSubmatch(req.ConfigValue.String(), -1)
 	// Checks the first guid value hasn't changed
 	if currentGuids[0][1] != newGuids[0][1] {
 		resp.RequiresReplace = true
+	}
+}
+
+func (r *TmlResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var config TmlResourceModel
+
+	diags := req.Config.Get(ctx, &config)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if config.UseObjectId.ValueBool() {
+		tml := config.Tml.ValueString()
+
+		// Check for GUIDs in the TML string
+		guidRegex := regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+		if guidRegex.MatchString(tml) {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("tml"),
+				"GUIDs Not Allowed When Using Object ID",
+				"When 'use_object_id' is set to true, the 'tml' attribute must not contain any GUIDs.",
+			)
+		}
 	}
 }
 
@@ -127,6 +160,15 @@ func (r *TmlResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 					listplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"use_object_id": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Flag to use object id and not guid mapping in TML import",
+				Default:     booldefault.StaticBool(false),
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }
@@ -151,7 +193,7 @@ func (r *TmlResource) Configure(_ context.Context, req resource.ConfigureRequest
 	r.client = client
 }
 
-func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml string, existingGuids []MetadataGuidModel) (*TmlResourceModel, diag.Diagnostics) {
+func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml string, existingGuids []MetadataGuidModel, useObjectId bool) (*TmlResourceModel, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
 	cr := models.ExportMetadataTMLRequest{
@@ -160,7 +202,8 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 		}},
 		EdocFormat: "YAML",
 		ExportOptions: models.ExportOptions{
-			IncludeGuid: false,
+			IncludeGuid:  !useObjectId,
+			IncludeObjId: useObjectId,
 		},
 	}
 
@@ -179,34 +222,43 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 
 	metadata := c[0]
 
-	var guids []MetadataGuidModel
-	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
-	ogids := re.FindAllStringSubmatch(tml, -1)
-	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
-	if len(ogids) == 0 || len(cgids) == 0 {
-		diags.AddError(
-			"Could not extract guids from TML",
-			"No guids found for Metadata ID: "+id,
-		)
-		return nil, diags
-	}
-	if existingGuids != nil && len(ogids) != len(cgids) {
-		guids = existingGuids
-	} else {
-		for j := range ogids {
-			guid := MetadataGuidModel{
-				Original: types.StringValue(ogids[j][1]),
-				Computed: types.StringValue(cgids[j][1]),
-			}
-			guids = append(guids, guid)
-
-		}
-	}
-
 	tmlExport := metadata.Edoc
+	var guids []MetadataGuidModel
 
-	for _, guid := range guids {
-		tmlExport = strings.Replace(tml, guid.Computed.ValueString(), guid.Original.ValueString(), 1)
+	if !useObjectId {
+		re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
+		ogids := re.FindAllStringSubmatch(tml, -1)
+		cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
+		if len(ogids) == 0 || len(cgids) == 0 {
+			diags.AddError(
+				"Could not extract guids from TML",
+				"No guids found for Metadata ID: "+id,
+			)
+			return nil, diags
+		}
+		if existingGuids != nil && len(ogids) != len(cgids) {
+			guids = existingGuids
+		} else {
+			for j := range ogids {
+				guid := MetadataGuidModel{
+					Original: types.StringValue(ogids[j][1]),
+					Computed: types.StringValue(cgids[j][1]),
+				}
+				guids = append(guids, guid)
+
+			}
+		}
+
+		for _, guid := range guids {
+			tmlExport = strings.Replace(tml, guid.Computed.ValueString(), guid.Original.ValueString(), 1)
+		}
+	} else {
+		guid := MetadataGuidModel{
+			Original: types.StringValue(id),
+			Computed: types.StringValue(id),
+		}
+		guids = append(guids, guid)
+
 	}
 
 	lg, diag := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: MetadataGuidModel{}.attrTypes()}, guids)
@@ -235,7 +287,7 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 	cr := models.ImportMetadataTMLRequest{
 		MetadataTmls: []string{plan.Tml.ValueString()},
 		ImportPolicy: "ALL_OR_NONE",
-		CreateNew:    true,
+		CreateNew:    false,
 	}
 
 	c, err := r.client.ImportMetadataTML(cr)
@@ -243,13 +295,9 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing TML",
-			"Could not import tml , unexpected error: "+c[0].Response.Status.ErrorMessage,
+			"Could not import tml , unexpected error: "+err.Error(),
 		)
 		return
-	}
-
-	if len(c) == 0 {
-
 	}
 
 	if c[0].Response.Status.StatusCode == "ERROR" {
@@ -259,9 +307,9 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 		)
 		return
 	}
-	id := c[0].Response.Header["id_guid"].(string)
+	id := c[0].Response.Header.IdGuid
 
-	ex, diags := exportTml(ctx, r.client, id, plan.Tml.ValueString(), nil)
+	ex, diags := exportTml(ctx, r.client, id, plan.Tml.ValueString(), nil, plan.UseObjectId.ValueBool())
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return
@@ -295,7 +343,7 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	if guids == nil {
 		guids = []MetadataGuidModel{}
 	}
-	ex, diags := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString(), guids)
+	ex, diags := exportTml(ctx, r.client, state.ID.ValueString(), state.Tml.ValueString(), guids, state.UseObjectId.ValueBool())
 	if diags.HasError() {
 		resp.Diagnostics.Append(diags...)
 		return
@@ -327,13 +375,16 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	var guids []MetadataGuidModel
-	diags = plan.Guids.ElementsAs(ctx, &guids, false)
-	resp.Diagnostics.Append(diags...)
 	tml := plan.Tml.ValueString()
-	for _, guid := range guids {
-		tml = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
 
+	if !plan.UseObjectId.ValueBool() {
+		var guids []MetadataGuidModel
+		diags = plan.Guids.ElementsAs(ctx, &guids, false)
+		resp.Diagnostics.Append(diags...)
+		for _, guid := range guids {
+			tml = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
+
+		}
 	}
 
 	cr := models.ImportMetadataTMLRequest{

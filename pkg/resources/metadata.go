@@ -253,7 +253,7 @@ func (r *MetadataResource) Create(ctx context.Context, req resource.CreateReques
 
 	var ids []string
 	for i := range c {
-		ids = append(ids, c[i].Response.Header["id_guid"].(string))
+		ids = append(ids, c[i].Response.Header.IdGuid)
 	}
 
 	ex, _ := exportTmlsMetadata(ctx, r.client, ids, tmls)
@@ -353,7 +353,7 @@ func (r *MetadataResource) Update(ctx context.Context, req resource.UpdateReques
 
 	var ids []string
 	for _, r := range c {
-		ids = append(ids, r.Response.Header["id_guid"].(string))
+		ids = append(ids, r.Response.Header.IdGuid)
 	}
 
 	ex, diag := exportTmlsMetadata(ctx, r.client, ids, tmls)
