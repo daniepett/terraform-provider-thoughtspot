@@ -106,7 +106,7 @@ func (r *TmlResource) ValidateConfig(ctx context.Context, req resource.ValidateC
 		tml := config.Tml.ValueString()
 
 		// Check for GUIDs in the TML string
-		guidRegex := regexp.MustCompile(`(?m)^([ ]*)guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
+		guidRegex := regexp.MustCompile(`^guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
 		if guidRegex.MatchString(tml) {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("tml"),
@@ -225,34 +225,35 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	tmlExport := metadata.Edoc
 	var guids []MetadataGuidModel
 
-	if !useObjectId {
-		re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
-		ogids := re.FindAllStringSubmatch(tml, -1)
-		cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
-		if len(ogids) == 0 || len(cgids) == 0 {
-			diags.AddError(
-				"Could not extract guids from TML",
-				"No guids found for Metadata ID: "+id,
-			)
-			return nil, diags
-		}
-		if existingGuids != nil && len(ogids) != len(cgids) {
-			guids = existingGuids
-		} else {
-			for j := range ogids {
-				guid := MetadataGuidModel{
-					Original: types.StringValue(ogids[j][1]),
-					Computed: types.StringValue(cgids[j][1]),
-				}
-				guids = append(guids, guid)
-
+	re := regexp.MustCompile(`guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
+	ogids := re.FindAllStringSubmatch(tml, -1)
+	cgids := re.FindAllStringSubmatch(metadata.Edoc, -1)
+	if (len(ogids) == 0 || len(cgids) == 0) && !useObjectId {
+		diags.AddError(
+			"Could not extract guids from TML",
+			"No guids found for Metadata ID: "+id,
+		)
+		return nil, diags
+	}
+	if existingGuids != nil && len(ogids) != len(cgids) {
+		guids = existingGuids
+	} else {
+		for j := range ogids {
+			guid := MetadataGuidModel{
+				Original: types.StringValue(ogids[j][1]),
+				Computed: types.StringValue(cgids[j][1]),
 			}
-		}
+			guids = append(guids, guid)
 
+		}
+	}
+
+	if len(guids) > 0 {
 		for _, guid := range guids {
 			tmlExport = strings.Replace(tml, guid.Computed.ValueString(), guid.Original.ValueString(), 1)
 		}
 	} else {
+		// Computed attribute can't be nil
 		guid := MetadataGuidModel{
 			Original: types.StringValue(id),
 			Computed: types.StringValue(id),
@@ -377,14 +378,12 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	tml := plan.Tml.ValueString()
 
-	if !plan.UseObjectId.ValueBool() {
-		var guids []MetadataGuidModel
-		diags = plan.Guids.ElementsAs(ctx, &guids, false)
-		resp.Diagnostics.Append(diags...)
-		for _, guid := range guids {
-			tml = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
+	var guids []MetadataGuidModel
+	diags = plan.Guids.ElementsAs(ctx, &guids, false)
+	resp.Diagnostics.Append(diags...)
+	for _, guid := range guids {
+		tml = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
 
-		}
 	}
 
 	cr := models.ImportMetadataTMLRequest{
