@@ -106,7 +106,7 @@ func (r *TmlResource) ValidateConfig(ctx context.Context, req resource.ValidateC
 		tml := config.Tml.ValueString()
 
 		// Check for GUIDs in the TML string
-		guidRegex := regexp.MustCompile(`(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`)
+		guidRegex := regexp.MustCompile(`(?m)^([ ]*)guid: ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})`)
 		if guidRegex.MatchString(tml) {
 			resp.Diagnostics.AddAttributeError(
 				path.Root("tml"),
