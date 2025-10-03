@@ -318,7 +318,8 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// Map response body to schema and populate Computed attribute values
 	plan.ID = types.StringValue(id)
-	plan.Tml = ex.Tml
+	// Commented out while TS fixes viz_guid implementations
+	// plan.Tml = ex.Tml
 	plan.Guids = ex.Guids
 
 	// Set state to fully populated data
