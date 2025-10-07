@@ -216,6 +216,14 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 		return nil, diags
 	}
 
+	if c[0].Info.Status.StatusCode == "ERROR" {
+		diags.AddError(
+			"Error reading TML",
+			"Could not read tml , unexpected error: "+c[0].Info.Status.ErrorMessage,
+		)
+		return nil, diags
+	}
+
 	if len(c) == 0 {
 		return nil, diags
 	}
@@ -397,7 +405,7 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if err != nil {
 		resp.Diagnostics.AddError(
 			"Error importing TML",
-			"Could not import tml , unexpected error: "+c[0].Response.Status.ErrorMessage,
+			"Could not import tml , unexpected error: "+err.Error(),
 		)
 		return
 
