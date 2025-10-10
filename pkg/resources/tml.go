@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/daniepett/thoughtspot-sdk-go"
 	"github.com/daniepett/thoughtspot-sdk-go/models"
@@ -317,6 +318,9 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 	id := c[0].Response.Header.IdGuid
+
+	// Sleep for a few seconds to allow the resource to be ready
+	time.Sleep(5 * time.Second)
 
 	ex, diags := exportTml(ctx, r.client, id, plan.Tml.ValueString(), nil, plan.UseObjectId.ValueBool())
 	if diags.HasError() {
