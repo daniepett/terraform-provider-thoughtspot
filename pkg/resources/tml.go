@@ -43,6 +43,7 @@ type TmlResourceModel struct {
 	Tml         types.String `tfsdk:"tml"`
 	Guids       types.List   `tfsdk:"guids"`
 	UseObjectId types.Bool   `tfsdk:"use_object_id"`
+	Name        types.String `tfsdk:"name"`
 }
 
 type TmlGuidModel struct {
@@ -128,6 +129,12 @@ func (r *TmlResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
+				Computed: true,
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"name": schema.StringAttribute{
 				Computed: true,
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.UseStateForUnknown(),
@@ -278,6 +285,7 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	m := TmlResourceModel{
 		ID:    types.StringValue(metadata.Info.Id),
 		Tml:   types.StringValue(tmlExport),
+		Name:  types.StringValue(metadata.Info.Name),
 		Guids: lg,
 	}
 
@@ -330,6 +338,7 @@ func (r *TmlResource) Create(ctx context.Context, req resource.CreateRequest, re
 
 	// Map response body to schema and populate Computed attribute values
 	plan.ID = types.StringValue(id)
+	plan.Name = types.StringValue(c[0].Response.Header.Name)
 	// Commented out while TS fixes viz_guid implementations
 	// plan.Tml = ex.Tml
 	plan.Guids = ex.Guids
@@ -370,6 +379,7 @@ func (r *TmlResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 
 	state.Tml = ex.Tml
 	state.Guids = ex.Guids
+	state.Name = ex.Name
 
 	// Set refreshed state
 	diags = resp.State.Set(ctx, &state)
@@ -428,6 +438,8 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 
 	// plan.Tml = ex.Tml
 	// plan.Guids = ex.Guids
+
+	plan.Name = types.StringValue(c[0].Response.Header.Name)
 
 	diags = resp.State.Set(ctx, plan)
 	resp.Diagnostics.Append(diags...)
