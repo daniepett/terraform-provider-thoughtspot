@@ -224,15 +224,15 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 		return nil, diags
 	}
 
+	if len(c) == 0 {
+		return nil, diags
+	}
+
 	if c[0].Info.Status.StatusCode == "ERROR" {
 		diags.AddError(
 			"Error reading TML",
 			"Could not read tml , unexpected error: "+c[0].Info.Status.ErrorMessage,
 		)
-		return nil, diags
-	}
-
-	if len(c) == 0 {
 		return nil, diags
 	}
 
