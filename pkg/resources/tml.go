@@ -211,7 +211,7 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 		EdocFormat: "YAML",
 		ExportOptions: models.ExportOptions{
 			IncludeGuid:  !useObjectId,
-			IncludeObjId: useObjectId,
+			IncludeObjId: false,
 		},
 	}
 
@@ -225,14 +225,6 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 	}
 
 	if len(c) == 0 {
-		return nil, diags
-	}
-
-	if c[0].Info.Status.StatusCode == "ERROR" {
-		diags.AddError(
-			"Error reading TML",
-			"Could not read tml , unexpected error: "+c[0].Info.Status.ErrorMessage,
-		)
 		return nil, diags
 	}
 
@@ -276,6 +268,14 @@ func exportTml(ctx context.Context, client *thoughtspot.Client, id string, tml s
 		}
 		guids = append(guids, guid)
 
+	}
+
+	// When using object IDs, the ThoughtSpot API export may omit fields that are present in
+	// the user's config (e.g. fqn) or add fields that are not (e.g. obj_id). To avoid
+	// perpetual diffs, store the config TML directly in state — the API response is only
+	// used to obtain the resource id and name.
+	if useObjectId {
+		tmlExport = tml
 	}
 
 	lg, diag := types.ListValueFrom(ctx, types.ObjectType{AttrTypes: MetadataGuidModel{}.attrTypes()}, guids)
@@ -407,6 +407,13 @@ func (r *TmlResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	for _, guid := range guids {
 		tml = strings.Replace(tml, guid.Original.ValueString(), guid.Computed.ValueString(), 1)
 
+	}
+
+	// When use_object_id is true, the config TML has no guid or obj_id identifiers.
+	// Inject the resource's guid so ThoughtSpot can identify the existing object to update,
+	// preventing it from creating a duplicate object instead.
+	if plan.UseObjectId.ValueBool() {
+		tml = "guid: " + plan.ID.ValueString() + "\n" + tml
 	}
 
 	cr := models.ImportMetadataTMLRequest{
